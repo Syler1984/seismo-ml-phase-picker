@@ -9,6 +9,9 @@ import config.vars as config
 from obspy.io.mseed import InternalMSEEDError
 from obspy.core.utcdatetime import UTCDateTime
 
+import matplotlib.pyplot as plt
+import numpy as np
+
 
 def get_stations(nordic_file_names, output_level=0):
     """
@@ -194,7 +197,7 @@ def slice_from_reading(reading_path, waveforms_path, slice_duration=5, archive_d
                             for pick_print in event.picks:
                                 print(str(pick_print))
                     else:
-                        start_seconds_pick = pick.time.seconds
+                        start_seconds_pick = pick.time.second
                     pick_time = UTCDateTime(pick.time.year, pick.time.month, pick.time.day, pick.time.hour,
                                             pick.time.minute, start_seconds_pick)
 
@@ -257,36 +260,6 @@ def slice_from_reading(reading_path, waveforms_path, slice_duration=5, archive_d
                                             slice_name_station_channel = (trace_slice, trace_file, x[0], x[1], event_id,
                                                                           pick.phase_hint, id_str)
 
-                                            # print("ID " + str(id_str))
-                                            # if id_str == '20140413140958':
-                                            # print(x[0])
-                                            # if True:#x[0] == 'NKL':
-                                            # trace.integrate()
-                                            # trace_slice.integrate()
-                                            # trace.normalize()
-                                            # trace_slice.normalize()
-                                            # print('FOUND ID! NORMALIZED')
-                                            # print('ARCHIVE: ' + archive_file_path)
-                                            # print('FILE: ' + trace_file)
-                                            # print('SLICE: ' + str(trace_slice))
-                                            # print('TIME: ' + str(shifted_time) + ' till ' + str(end_time))
-                                            # print('TRACE: ' + str(trace))
-                                            # print('DATA: ' + str(trace_slice.data))
-
-                                            # trace_slice.filter("highpass", freq=config.highpass_filter_df)
-                                            # patho = "/seismo/seisan/WOR/chernykh/plots/part/"
-                                            # patho2 = "/seismo/seisan/WOR/chernykh/plots/whole/"
-
-                                            # plt.plot(trace_slice.data)
-                                            # plt.ylabel('Amplitude')
-                                            # plt.savefig(patho + trace_file)
-                                            # plt.figure()
-
-                                            # plt.plot(trace.data)
-                                            # plt.ylabel('Amplitude')
-                                            # plt.savefig(patho2 + trace_file)
-                                            # plt.figure()
-
                                             if len(trace_slice.data) >= 400:
                                                 channel_slices.append(slice_name_station_channel)
 
@@ -321,7 +294,7 @@ def parse_s_file(reading_path, picks_size):
     if config.seconds_high_precision:
         picks_seconds = []
     else:
-        picks_seconds = None
+        picks_seconds = []
 
     # Parsing
     with open(reading_path, 'r') as f:
@@ -341,6 +314,13 @@ def parse_s_file(reading_path, picks_size):
                     except ValueError as e:
                         seconds = None
                     picks_seconds.append(seconds)
+                else:
+                    try:
+                        seconds = float(line[22:27])
+                    except ValueError as e:
+                        seconds = None
+                    picks_seconds.append(seconds)
+
 
                 picks_read += 1
 
@@ -387,7 +367,7 @@ def get_picks(reading_path, archive_definitions=[]):
     event = events[0].events[0]
 
     if len(event.picks) == 0:
-        print("In {}: No picks!".format(reading_path))  # Throw exception?
+        # print("In {}: No picks!".format(reading_path))  # Throw exception?
         return -1
 
     # Parse S-file additional info
@@ -395,6 +375,11 @@ def get_picks(reading_path, archive_definitions=[]):
 
     #print("Parsed data:", "{}".format(parsed_data), sep='\n')
     event_id = parsed_data[0]
+
+    print("ID: {}".format(event_id))
+    if str(event_id) == str(20140404180831):
+        print("EVENT FOUND")
+
     picks_dists = parsed_data[1]
     picks_seconds = parsed_data[2]
 
@@ -424,6 +409,11 @@ def get_picks(reading_path, archive_definitions=[]):
     index = -1
     # List of picks: [[station, phase, distance, [archive_definition, archive_path, start, end, [archive trace slices]]]]
     result_list = []
+
+    if str(event_id) == str(20140404180831):
+        print("in file: \n{}".format(reading_path))
+        print("picks: \n{}".format(event.picks))
+
     for pick in event.picks:
         index += 1
 
@@ -433,15 +423,17 @@ def get_picks(reading_path, archive_definitions=[]):
                 if picks_seconds[index] is not None:
                     pick_sec = picks_seconds[index]
                 else:
-                    pick_sec = pick.time.second
+                    pick_sec = float("{}.{}".format(pick.time.second, pick.time.microsecond))
             else:
-                print("In {}: Index for picks is out of range for picks_seconds list!".format(reading_path))  # Throw exception?
-                return -1
-        else:
-            pick_sec = pick.time.second
+                pick_sec = float("{}.{}".format(pick.time.second, pick.time.microsecond))
+                # print("In {}: Index for picks is out of range for picks_seconds list!".format(reading_path))  # Throw exception?
+                # return -1
 
-        time = UTCDateTime(pick.time.year, pick.time.month, pick.time.day, pick.time.hour,
-                           pick.time.minute, pick_sec)
+            time = UTCDateTime(pick.time.year, pick.time.month, pick.time.day, pick.time.hour,
+                               pick.time.minute, pick_sec)
+        else:
+            time = pick.time
+
 
         # Check pick distance
         distance = None
@@ -458,7 +450,11 @@ def get_picks(reading_path, archive_definitions=[]):
         station = pick.waveform_id.station_code
         station_archives = seisan.station_archives(archive_definitions, station)
 
+        search_phase = ''
+        phase_time = None
         archives_picks = []  # [archive_definition, archive_path, start, end, [archive trace slices]]
+
+        jj = 0
         for x in station_archives:
             # Check if archive exists for current pick
             if x[4] > time:
@@ -476,6 +472,15 @@ def get_picks(reading_path, archive_definitions=[]):
                 print("In {}: {}".format(reading_path, e))  # Throw exception?
                 return -1
 
+            fig_path = "/seismo/seisan/WOR/chernykh/figs/"
+
+            fig_name = fig_path + event_id + ".png"
+            fig_name_b = fig_path + event_id + "_before.png"
+            fig_name_c = fig_path + event_id + "_before_zoom1.png"
+            fig_name_d = fig_path + event_id + "_before_zoom2.png"
+            fig_name_e = fig_path + event_id + "_before_zoom3.png"
+            fig_name_a = fig_path + event_id + "_after.png"
+
             # Get start and end time for pick
             start_time = time - config.static_slice_offset
             end_time = start_time + config.slice_duration
@@ -488,13 +493,94 @@ def get_picks(reading_path, archive_definitions=[]):
                 if trace.stats.starttime > shifted_start_time or shifted_end_time >= trace.stats.endtime:
                     continue
 
+                #if not os.path.isfile(fig_name_b) and str(event_id) == str(20140404180831):
+                if not os.path.isfile(fig_name_b) and str(event_id) == str(20140404180831):
+                    trace_slice = trace.slice(shifted_start_time, shifted_end_time)
+
+                    df = trace_slice.stats.sampling_rate
+                    stt = trace_slice.stats.starttime
+                    mrk = int((time - stt)*df)
+                    dat = trace_slice.filter("highpass", freq=config.highpass_filter_df).normalize().data
+                    # dat = trace_slice.normalize().data
+
+                    zr = np.zeros(dat.shape[0])
+                    zr[mrk] = 1.
+                    zr[mrk + 1] = -1.
+
+                    plt.plot(dat)
+                    plt.plot(zr, 'r')
+                    plt.savefig(fig_name_b)
+                    plt.clf()
+
+                    ctr = int(dat.shape[0]/2)
+
+                    plt.plot(dat[ctr - 3000:ctr + 3000])
+                    plt.plot(zr[ctr - 3000:ctr + 3000], 'r')
+                    plt.savefig(fig_name_c)
+                    plt.clf()
+
+                    plt.plot(dat[ctr - 2000:ctr + 2000])
+                    plt.plot(zr[ctr - 2000:ctr + 2000], 'r')
+                    plt.savefig(fig_name_d)
+                    plt.clf()
+
+                    plt.plot(dat[ctr - 500:ctr + 500])
+                    plt.plot(zr[ctr - 500:ctr + 500], 'r')
+                    plt.savefig(fig_name_e)
+                    plt.clf()
+
+                    print("SAVED")
+                    print("archive: {}, pick_time: {}, rate: {}, ".format(archive_path, time, df))
+                    print("SAVED: {}".format(fig_name_b))
+
+
                 trace_slice = trace.slice(shifted_start_time, shifted_end_time)
 
                 archive_picks_list.append([trace_slice.stats.starttime, trace_slice.stats.endtime, trace_slice])
 
-            archives_picks.append([x, archive_path, shifted_start_time, shifted_end_time, time, archive_picks_list])
+            search_phase = ''
+            if pick.phase_hint == 'P':
+                search_phase = 'S'
+            elif pick.phase_hint == 'S':
+                search_phase = 'P'
 
-        result_list.append([station, pick.phase_hint, distance, archives_picks])
+            jj += 1
+            phase_time = None
+            if len(search_phase) > 0:
+                i = -1
+                for p in event.picks:
+                    i += 1
+
+                    if p.waveform_id.station_code != station:
+                        continue
+
+                    if p.phase_hint != search_phase:
+                        continue
+
+                    # Get pick time
+                    if config.seconds_high_precision:
+                        if i < len(picks_seconds):
+                            if picks_seconds[i] is not None:
+                                p_sec = picks_seconds[i]
+                            else:
+                                p_sec = float("{}.{}".format(p.time.second, p.time.microsecond))
+                        else:
+                            # print("In {}: Index for picks is out of range for picks_seconds list!".format(
+                            # reading_path))  # Throw exception?
+                            p_sec = float("{}.{}".format(p.time.second, p.time.microsecond))
+
+                        phase_time = UTCDateTime(p.time.year, p.time.month, p.time.day, p.time.hour,
+                                                 p.time.minute, p_sec)
+                    else:
+                        phase_time = p.time
+
+                    break
+
+
+
+            archives_picks.append([x, archive_path, shifted_start_time, shifted_end_time, time, archive_picks_list, phase_time, search_phase])
+
+        result_list.append([station, pick.phase_hint, distance, archives_picks, phase_time, search_phase])
 
     # [event_id, reading_path, magnitude, depth,
     #   [[station, phase, distance,
@@ -595,17 +681,28 @@ def save_picks(picks, save_dir, file_format="MSEED"):
     :param file_format:
     :return:
     """
-    # Create save_dir
-    save_dir = utils.normalize_path(save_dir)
-    if not os.path.isdir(save_dir):
-        os.makedirs(save_dir)
-
     # Retrieve event data
     event_id = picks[0]
     reading_path = picks[1]
     magnitude = picks[2]
     depth = picks[3]
     event_picks = picks[4]
+
+    abort_save = True
+
+    for pick in event_picks:
+        phase_picks = pick[3]
+        if len(phase_picks) > 0:
+            abort_save = False
+            break
+
+    if abort_save:
+        return -1
+
+    # Create save_dir
+    save_dir = utils.normalize_path(save_dir)
+    if not os.path.isdir(save_dir):
+        os.makedirs(save_dir)
 
     # If no event ID, quit
     if event_id is None or len(event_id) == 0:
@@ -664,27 +761,51 @@ def save_picks(picks, save_dir, file_format="MSEED"):
                 pick_time = p_pick[4]
                 pick_start_time = p_pick[2]
                 pick_end_time = p_pick[3]
-                print("{name}={day}.{month}.{year}-{hour}:{minute}:{second}".format(name="WavePhaseTime",
+                pick_alt_time = p_pick[6]
+                pick_alt_phase = p_pick[7]
+                print("{name}={day}.{month}.{year}-{hour}:{minute}:{second}:{micro}".format(name="WavePhaseTime",
                                                                                     day=pick_time.day,
                                                                                     month=pick_time.month,
                                                                                     year=pick_time.year,
                                                                                     hour=pick_time.hour,
                                                                                     minute=pick_time.minute,
-                                                                                    second=pick_time.second), file=f)
-                print("{name}={day}.{month}.{year}-{hour}:{minute}:{second}".format(name="WaveStartTime",
+                                                                                    second=pick_time.second,
+                                                                                    micro=pick_time.microsecond), file=f)
+                print("{name}={day}.{month}.{year}-{hour}:{minute}:{second}:{micro}".format(name="WaveStartTime",
                                                                                     day=pick_start_time.day,
                                                                                     month=pick_start_time.month,
                                                                                     year=pick_start_time.year,
                                                                                     hour=pick_start_time.hour,
                                                                                     minute=pick_start_time.minute,
-                                                                                    second=pick_start_time.second), file=f)
-                print("{name}={day}.{month}.{year}-{hour}:{minute}:{second}".format(name="WaveEndTime",
+                                                                                    second=pick_start_time.second,
+                                                                                    micro=pick_start_time.microsecond), file=f)
+                print("{name}={day}.{month}.{year}-{hour}:{minute}:{second}:{micro}".format(name="WaveEndTime",
                                                                                     day=pick_end_time.day,
                                                                                     month=pick_end_time.month,
                                                                                     year=pick_end_time.year,
                                                                                     hour=pick_end_time.hour,
                                                                                     minute=pick_end_time.minute,
-                                                                                    second=pick_end_time.second), file=f)
+                                                                                    second=pick_end_time.second,
+                                                                                    micro=pick_end_time.microsecond), file=f)
+                if pick_alt_time is None:
+                    print("{name}=None".format(name="PickAltPhaseTime"), file=f)
+                else:
+                    print("{name}={day}.{month}.{year}-{hour}:{minute}:{second}:{micro}".format(name="PickAltPhaseTime",
+                                                                                        day=pick_alt_time.day,
+                                                                                        month=pick_alt_time.month,
+                                                                                        year=pick_alt_time.year,
+                                                                                        hour=pick_alt_time.hour,
+                                                                                        minute=pick_alt_time.minute,
+                                                                                        second=pick_alt_time.second,
+                                                                                        micro=pick_alt_time.microsecond),
+                          file=f)
+
+                if len(pick_alt_phase) == 0:
+                    print("{name}={phase}".format(name="PickAltPhase",
+                                                  phase=pick_alt_phase), file=f)
+                else:
+                    print("{name}={phase}".format(name="PickAltPhase",
+                                                  phase=pick_alt_phase), file=f)
 
         # Save trace slices
         for p_pick in phase_picks:

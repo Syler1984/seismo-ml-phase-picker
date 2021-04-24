@@ -230,6 +230,9 @@ class SliceStats:
     start_time = None  # WaveStartTime
     end_time = None  # WaveEndTime
 
+    alt_phase_time = None # PickAltPhaseTime
+    alt_phase = None # PickAltPhase
+
     def __str__(self):
         """
         Custom __str__ method implementation. Resulting string is represented in .ini format
@@ -250,7 +253,10 @@ class SliceStats:
 
                  '{}={}'.format('WavePhaseTime', self.phase_time),
                  '{}={}'.format('WaveStartTime', self.start_time),
-                 '{}={}'.format('WaveEndTime', self.end_time)]
+                 '{}={}'.format('WaveEndTime', self.end_time),
+
+                 '{}={}'.format('PickAltPhaseTime', self.alt_phase_time),
+                 '{}={}'.format('PickAltPhase', self.alt_phase)]
 
         return '\n'.join(lines)
 
@@ -349,42 +355,66 @@ class SliceStats:
             else:
                 split = value.split('-', 2)
                 dmy_split = split[0].split('.', 3)
-                hms_split = split[1].split(':', 3)
+                hms_split = split[1].split(':', 4)
 
                 self.phase_time = datetime.UTCDateTime(day=int(dmy_split[0]),
                                                        month=int(dmy_split[1]),
                                                        year=int(dmy_split[2]),
                                                        hour=int(hms_split[0]),
                                                        minute=int(hms_split[1]),
-                                                       second=int(hms_split[2]))
+                                                       second=int(hms_split[2]),
+                                                       microsecond=int(hms_split[3]))
         elif name == 'WaveStartTime':
             if value is None or value == 'None':
                 self.start_time = None
             else:
                 split = value.split('-', 2)
                 dmy_split = split[0].split('.', 3)
-                hms_split = split[1].split(':', 3)
+                hms_split = split[1].split(':', 4)
 
                 self.start_time = datetime.UTCDateTime(day=int(dmy_split[0]),
                                                        month=int(dmy_split[1]),
                                                        year=int(dmy_split[2]),
                                                        hour=int(hms_split[0]),
                                                        minute=int(hms_split[1]),
-                                                       second=int(hms_split[2]))
+                                                       second=int(hms_split[2]),
+                                                       microsecond=int(hms_split[3]))
         elif name == 'WaveEndTime':
             if value is None or value == 'None':
                 self.end_time = None
             else:
                 split = value.split('-', 2)
                 dmy_split = split[0].split('.', 3)
-                hms_split = split[1].split(':', 3)
+                hms_split = split[1].split(':', 4)
 
                 self.end_time = datetime.UTCDateTime(day=int(dmy_split[0]),
                                                      month=int(dmy_split[1]),
                                                      year=int(dmy_split[2]),
                                                      hour=int(hms_split[0]),
                                                      minute=int(hms_split[1]),
-                                                     second=int(hms_split[2]))
+                                                     second=int(hms_split[2]),
+                                                     microsecond=int(hms_split[3]))
+
+        elif name == 'PickAltPhaseTime':
+            if value is None or value == 'None' or value == '' or value == '\n':
+                self.alt_phase_time = None
+            else:
+                split = value.split('-', 2)
+                dmy_split = split[0].split('.', 3)
+                hms_split = split[1].split(':', 4)
+
+                self.alt_phase_time = datetime.UTCDateTime(day=int(dmy_split[0]),
+                                                           month=int(dmy_split[1]),
+                                                           year=int(dmy_split[2]),
+                                                           hour=int(hms_split[0]),
+                                                           minute=int(hms_split[1]),
+                                                           second=int(hms_split[2]),
+                                                           microsecond=int(hms_split[3]))
+        elif name == 'PickAltPhase':
+            if value is None or value == 'None' or value == '' or value == '\n':
+                self.alt_phase = None
+            else:
+                self.alt_phase = str(value)
 
         else:
             raise ValueError("name must correspond with actual parameter name")

@@ -7,6 +7,7 @@ import logging
 import utils.converter as converter
 
 import utils.converter as converter
+import utils.utils as utils
 
 
 def read_archive_definitions(reading_path, output_level=0):
@@ -142,7 +143,7 @@ def archive_path(archive_definition, year, day, archive_dir='', output_level=0):
     path += day_str
 
     if len(archive_dir) != 0:
-        return normalize_path(archive_dir) + '/' + path
+        return utils.normalize_path(archive_dir) + '/' + path
 
     return path
 
@@ -162,12 +163,3 @@ def station_archives(archive_definitions, station):
     return search_result
 
 
-def normalize_path(path):
-    """
-    Normalizes provided path to: /something/something/something
-    :param path:    string    path to normalize
-    :return:        string    normalized path
-    """
-    while path[len(path) - 1] == ' ' or path[len(path) - 1] == '/':
-        path = path[:len(path) - 1]
-    return path

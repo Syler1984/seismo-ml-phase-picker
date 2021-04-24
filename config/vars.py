@@ -4,57 +4,73 @@ path = '/seismo/seisan/'  # Seisan root
 db_name = 'IMGG_'  # Database name
 wav_path = 'WAV/'  # WAV files subdir name
 rea_path = 'REA/'  # S-files subdir name
-seisan_definitions_path = '/seismo/seisan/DAT/SEISAN.DEF'  # Path to def file (used for finding stations definitions)
-archives_path = '/seismo/archive'                    # Path to archives
+seisan_definitions_path = '/seismo/seisan/WOR/chernykh/REA_dagestan/SEISAN.DEF' # '/seismo/seisan/DAT/SEISAN.DEF' # Path to def file (used for finding stations definitions)
+archives_path = '/opt/DAGESTAN/archive' # '/seismo/archive/' # Path to archives
 stations_save_path = home_directory + 'stations'  # Where to save stations list (station-picker)
 stations_load_path = home_directory + 'stations'  # Leave empty if want to generate stations list in process
 
 # CALCULATED GENERAL PATH VARIABLES
 readings_path = path + rea_path  # Partial path to S-files
 waveforms_path = path + wav_path  # Partial path to WAV files
-full_readings_path = readings_path + db_name  # Full path to S-files
-full_waveforms_path = waveforms_path + db_name  # Full path to WAV files
+full_readings_path = '/seismo/seisan/WOR/chernykh/REA_dagestan/opt/seisan/REA/IMGG_' # readings_path + db_name # Full path to S-files
+full_waveforms_path = '/opt/DAGESTAN/WAV/IMGG_' # waveforms_path + db_name # Full path to WAV files
 
 # OUTPUT PARAMETERS
 output_level = 5  # 0 - minimal output, 5 - maximum output
 
 # SLICING PARAMETERS
-slice_duration = 10  # Slice duration in seconds
+slice_duration = 100  # Slice duration in seconds
 static_slice_offset = slice_duration/2  # Center the pick
 
 archive_channels_order = ['N', 'E', 'Z']  # Specifies channels to pick
 
 dir_per_event = True  # If True - creates subdir for every event
 
-min_magnitude = 1.5  # Minimal magnitude of events allowed
+min_magnitude = 1.0  # Minimal magnitude of events allowed
 max_depth = 50000  # Maximum depth allowed
 max_dist = 300.0  # Maximum distance to station allowed
 
-save_dir = home_directory + 'WAVTest' # 'WAVNoShiftInfo'  # Where to save picks
+seconds_high_precision = True  # If true - seconds in picks will take 6 symbols, else - 5
+
+save_dir = home_directory + 'dagestan_100_sec'  # Where to save picks
+
+picking_stats_file = 'stats'
+event_stats_file = 'stats'
+picks_stats_file = 'stats'
+
+# If True - will rewrite all duplicate events unless last picking ended with error
+rewrite_duplicates = True
+# If True - will rewrite all duplicate events instead of ignoring them even if last picking ended with error
+explicit_rewrite_duplicates = False
 
 # NOISE PICKING
+noise_slice_duration = 100  # Slice duration in seconds
+noise_static_slice_offset = noise_slice_duration/2  # Center the pick
+
 max_noise_picks = 10000  # Max amount of noise examples to pick per script run
 
-start_date = [2014, 4, 5]  # Starting date for noise picker
-end_date = [2019, 1, 1]    # End date for noise picker
+start_date = [2019, 5, 1]  # Starting date for noise picker
+end_date = [2020, 6, 1]    # End date for noise picker
 
 tolerate_events_in_same_day = False  # If False - noise picker will ignore days when actual recorded events happend
 event_tolerance = 15  # Number of seconds around noise trace which should not contain any events
 
-noise_save_dir = home_directory + 'NoiseFixed'  # Where to save noise picks
+noise_save_dir = home_directory + 'dagestan_100_sec_noise'  # Where to save noise picks
 if len(noise_save_dir) == 0:  # Grab path from picks_slicing is not set
     noise_save_dir = save_dir
+
+event_time_threshold = 900  # How long noise cannot be picked around event in seconds
 
 # TO-DO: move month length to utils/ as function
 month_length = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
 
 # HDF5 PARAMETERS
-hdf5_file_name = home_directory + 'WAVTest.hdf5'  # Name to save composed hdf5 file under
+hdf5_file_name = home_directory + 'dagestan_10000_p.hdf5'  # Name to save composed hdf5 file under
 
 required_df = 100  # Required frequency of hdf5 traces for GPD
-required_trace_length = 400  # Required amount of samples (basically length*frequency)
+required_trace_length = 10000  # Required amount of samples (basically length*frequency)
 
-hdf5_array_length = 100  # Amount of S/P-picks and noise picks
+# hdf5_array_length = 100  # Amount of S/P-picks and noise picks
 
 # Codes to be used in Y dataset to characterize p/s/noise picks
 p_code = 0  # Code for p-wave picks
@@ -78,12 +94,12 @@ normalization_enabled = True  # If true - normalize picks
 global_max_normalizing = True  # If true, will normalize waveform by all traces in stream
 
 p_picks_dir_per_event = True  # Are p-wave picks organized with sub-dirs for each event
-p_picks_path = home_directory + 'WAVTest/'  # 'WAVNoShiftInfo/'      # Path to p-wave picks root
+p_picks_path = home_directory + 'dagestan_100_sec'  # Path to p-wave picks root
 p_file_extension = 'P'        # File extension of p-wave picks
 p_file_postfix_indexing = True  # If True - p-wave pick files can have indexing after extension (e.g. "filename.P.102")
 
 s_picks_dir_per_event = True  # Are s-wave picks organized with sub-dirs for each event
-s_picks_path = home_directory + 'WAVTest/'  # 'WAVNoShiftInfo/'      # Path to s-wave picks root
+s_picks_path = home_directory + 'dagestan_100_sec'  # Path to s-wave picks root
 s_file_extension = 'S'        # File extension of s-wave picks
 s_file_postfix_indexing = True  # If True - s-wave pick files can have indexing after extension (e.g. "filename.S.102")
 
@@ -95,7 +111,10 @@ slice_offset_end = 0    # Max value of random slice offset in seconds (negativel
 #                      ..slicing from 1 to slice_offset seconds)
 slice_offset_start = 0
 
-slice_size = 4  # In seconds
+slice_size = 59  # In seconds
+
+wave_noise_offset_picking = True  # Slice noise from wave-picks
+noise_offset = 2  # Offset for noise picks from the 0 point of the wave-pick
 
 # MESSAGES
 picks_help_message = """Usage: python seismo-phase-picker.py [options]
@@ -133,4 +152,3 @@ This script generates list of all stations, which registered atleast one event i
 hdf5_creator_help_message = """Usage: python hdf5-creator.py [options]
 Options: 
 -h, --help \t\t : print this help message and exit"""
-
