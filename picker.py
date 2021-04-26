@@ -25,6 +25,45 @@ import argparse
 #           .csv should be again done for events and grouped by files!
 
 
+def parse_ini(filename, params_set = None):
+    """
+    Parses .ini file.
+    """
+    var_dictionary = {}
+
+    with open(filename, 'r') as f:
+
+        for line in f:
+
+            key, value, typ = parse_line(line)
+
+            if not typ or typ == 'comment' or typ == 'section':
+                continue
+
+            if key in params_set:
+                continue
+
+            if typ is not None:
+
+                if typ == 'var':
+                    var_dictionary[key] = value
+
+                if typ == 'list':
+
+                    if type(value) is not list:
+                        value = [value]
+
+                    if key in var_dictionary:
+                        var_dictionary[key] += value
+                    else:
+                        var_dictionary[key] = value
+
+                if typ == 'dictionary':
+                    var_dictionary[key] = value
+
+    return var_dictionary
+
+
 def process_stations_file(path):
     return None
 
@@ -212,8 +251,19 @@ if __name__ == '__main__':
     args = parser.parse_args()
     args = vars(args)
 
-    if 'stations' in args:
-        stations = process_stations_file(args['stations'])
+    params_set = []
+
+    for k in args:
+
+        if args[k] is not None:
+            params[k] = args[k]
+            params_set.append(k)
+
+    params = parse_ini(params['config'], params_set)
+
+    stations = None
+    if params['stations']:
+        stations = process_stations_file(params['stations'])
 
     if not stations:
         stations = process_seisan_def(args['seisan_def'])
