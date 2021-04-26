@@ -1,19 +1,19 @@
 # GENERAL PATH VARIABLES
-home_directory = '/seismo/seisan/WOR/chernykh/'  # Home directory (serves as prefix to every data saving path)
-path = '/seismo/seisan/'  # Seisan root
+home_directory = '/opt/seisan/WOR/chernykh/phases/'  # Home directory (serves as prefix to every data saving path)
+path = '/opt/seisan/'  # Seisan root
 db_name = 'IMGG_'  # Database name
 wav_path = 'WAV/'  # WAV files subdir name
 rea_path = 'REA/'  # S-files subdir name
-seisan_definitions_path = '/seismo/seisan/WOR/chernykh/REA_dagestan/SEISAN.DEF' # '/seismo/seisan/DAT/SEISAN.DEF' # Path to def file (used for finding stations definitions)
-archives_path = '/opt/DAGESTAN/archive' # '/seismo/archive/' # Path to archives
+seisan_definitions_path = '/opt/seisan/DAT/SEISAN.DEF' # '/seismo/seisan/DAT/SEISAN.DEF' # Path to def file (used for finding stations definitions)
+archives_path = '/opt/archive' # '/seismo/archive/' # Path to archives
 stations_save_path = home_directory + 'stations'  # Where to save stations list (station-picker)
 stations_load_path = home_directory + 'stations'  # Leave empty if want to generate stations list in process
 
 # CALCULATED GENERAL PATH VARIABLES
 readings_path = path + rea_path  # Partial path to S-files
 waveforms_path = path + wav_path  # Partial path to WAV files
-full_readings_path = '/seismo/seisan/WOR/chernykh/REA_dagestan/opt/seisan/REA/IMGG_' # readings_path + db_name # Full path to S-files
-full_waveforms_path = '/opt/DAGESTAN/WAV/IMGG_' # waveforms_path + db_name # Full path to WAV files
+full_readings_path = '/opt/seisan/REA/IMGG_' # readings_path + db_name # Full path to S-files
+full_waveforms_path = '/opt/seisan/WAV/IMGG_' # waveforms_path + db_name # Full path to WAV files
 
 # OUTPUT PARAMETERS
 output_level = 5  # 0 - minimal output, 5 - maximum output
@@ -32,7 +32,7 @@ max_dist = 300.0  # Maximum distance to station allowed
 
 seconds_high_precision = True  # If true - seconds in picks will take 6 symbols, else - 5
 
-save_dir = home_directory + 'dagestan_100_sec'  # Where to save picks
+save_dir = home_directory + 'SACKHALIN_100_SEC'  # Where to save picks
 
 picking_stats_file = 'stats'
 event_stats_file = 'stats'
@@ -55,7 +55,7 @@ end_date = [2020, 6, 1]    # End date for noise picker
 tolerate_events_in_same_day = False  # If False - noise picker will ignore days when actual recorded events happend
 event_tolerance = 15  # Number of seconds around noise trace which should not contain any events
 
-noise_save_dir = home_directory + 'dagestan_100_sec_noise'  # Where to save noise picks
+noise_save_dir = home_directory + 'SACKHALIN_100_SEC_NOISE'  # Where to save noise picks
 if len(noise_save_dir) == 0:  # Grab path from picks_slicing is not set
     noise_save_dir = save_dir
 
@@ -65,7 +65,7 @@ event_time_threshold = 900  # How long noise cannot be picked around event in se
 month_length = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
 
 # HDF5 PARAMETERS
-hdf5_file_name = home_directory + 'dagestan_10000_p.hdf5'  # Name to save composed hdf5 file under
+hdf5_file_name = home_directory + 'sachalin_100.hdf5'  # Name to save composed hdf5 file under
 
 required_df = 100  # Required frequency of hdf5 traces for GPD
 required_trace_length = 10000  # Required amount of samples (basically length*frequency)
@@ -94,12 +94,12 @@ normalization_enabled = True  # If true - normalize picks
 global_max_normalizing = True  # If true, will normalize waveform by all traces in stream
 
 p_picks_dir_per_event = True  # Are p-wave picks organized with sub-dirs for each event
-p_picks_path = home_directory + 'dagestan_100_sec'  # Path to p-wave picks root
+p_picks_path = home_directory + 'WAV_P'  # Path to p-wave picks root
 p_file_extension = 'P'        # File extension of p-wave picks
 p_file_postfix_indexing = True  # If True - p-wave pick files can have indexing after extension (e.g. "filename.P.102")
 
 s_picks_dir_per_event = True  # Are s-wave picks organized with sub-dirs for each event
-s_picks_path = home_directory + 'dagestan_100_sec'  # Path to s-wave picks root
+s_picks_path = home_directory + 'WAV_S'  # Path to s-wave picks root
 s_file_extension = 'S'        # File extension of s-wave picks
 s_file_postfix_indexing = True  # If True - s-wave pick files can have indexing after extension (e.g. "filename.S.102")
 
