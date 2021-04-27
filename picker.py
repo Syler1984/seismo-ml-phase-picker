@@ -1,5 +1,7 @@
 import argparse
+import os
 from obspy.core.utcdatetime import UTCDateTime
+
 
 # TODO: This script should:
 #           get all data from either config/vars.py
@@ -123,7 +125,7 @@ def parse_line(line):
     return key, val, typ
 
 
-def parse_ini(filename, params_set = None, params = None):
+def parse_ini(filename, params_set=None, params=None):
     """
     Parses .ini file.
     """
@@ -215,7 +217,7 @@ def filter_by_channel(archives, allowed_channels):
     import collections
     compare = lambda x, y: collections.Counter(x) == collections.Counter(y)
 
-    lens = [] # Get all unique allowed channels length
+    lens = []  # Get all unique allowed channels length
     for l in [len(x) for x in allowed_channels]:
         if l not in lens:
             lens.append(l)
@@ -225,7 +227,7 @@ def filter_by_channel(archives, allowed_channels):
 
         if len(group) not in lens:
             continue
-        
+
         gr_channels = [x[1] for x in group]
         is_present = False
         for ch in allowed_channels:
@@ -274,7 +276,7 @@ def group_archives(archives):
     return grouped
 
 
-def date_str(year, month, day, hour=0, minute=0, second=0., microsecond = None):
+def date_str(year, month, day, hour=0, minute=0, second=0., microsecond=None):
     """
     Creates an ISO 8601 string.
     """
@@ -299,6 +301,88 @@ def date_str(year, month, day, hour=0, minute=0, second=0., microsecond = None):
 
     return tmp.format(year=year, month=month, day=day,
                       hour=hour, minute=minute, second=second, microsecond=microsecond)
+
+
+def parse_s_file(path):
+    """
+    Parses s-file and returns all its events readings.
+    :param path:
+    :return:
+    """
+    with open(path, 'r') as f:
+        lines = f.readlines()
+
+    head = lines[0]
+
+    # Find events table
+    table_head = ' STAT SP IPHASW D HRMM SECON CODA AMPLIT PERI AZIMU VELO AIN AR TRES W  DIS CAZ7'
+
+    for i, l in enumerate(lines):
+
+        if l[:len(table_head)] == table_head:
+            events_table = lines[i + 1:]
+
+    # Parse head
+    magnitude = float(head[55:59])
+    magnitude_type = head[59]
+
+    if magnitude_type != 'L':
+        print(f'In file "{path}": unsupported magnitude type "{magnitude_type}"! Skipping..')
+        return
+
+    depth = head[38:43]  # in Km
+    # TODO: filter out events by magnitude and depth
+
+    # Parse events
+    events = []
+    for l in events_table:
+
+        if not len(l.strip()):
+            continue
+
+        station = l[1:6]
+        instrument = l[6]
+        channel = l[7]
+        phase = l[10:14]
+        hour = int(l[18:20])
+        minute = int(l[20:22])
+        second = float(l[22:25])
+        distance = float(l[70:75])
+
+        events.append({'station': station,
+                       'instrument': instrument,
+                       'channel': channel,
+                       'phase': phase,
+                       'hour': hour,
+                       'minute': minute,
+                       'second': second,
+                       'distance': distance,
+                       'magnitude': magnitude,
+                       'depth': depth})
+
+    return events
+
+
+def parse_s_dir(path, stations):
+    """
+    Scans path directory, parses all s-files and returns filtered events_list grouped by stations.
+    :param path - path to the directory
+    :param stations - grouped stations list to filter out all stations which are not in this list.
+    """
+    if path[-1] != '/':
+        path += '/'
+
+    files = os.listdir(path)
+    files = [f'{path}{f}' for f in files]
+
+    for f in files:
+
+        events = parse_s_file(f)
+
+        print(f'FILE: {f}')
+        for e in events:
+            print(e)
+        print('\n')
 
 
 if __name__ == '__main__':
@@ -388,11 +472,12 @@ if __name__ == '__main__':
             params[k] = args[k]
             params_set.append(k)
 
-    params = parse_ini(params['config'], params_set, params = params)
+    params = parse_ini(params['config'], params_set, params=params)
+
 
     # Parse dates
     def parse_date_param(d_params, name):
-        
+
         if name not in d_params:
             return None
         if d_params[name] is None:
@@ -403,13 +488,14 @@ if __name__ == '__main__':
         except Exception:
             print(f'Failed to parse {name}, value: {d_params[name]}.')
 
+
     start_date = parse_date_param(params, 'start')
     end_date = parse_date_param(params, 'end')
 
     if end_date is None:
         end_date = UTCDateTime()
     if start_date is None:
-        start_date = UTCDateTime() - 30*24*60*60
+        start_date = UTCDateTime() - 30 * 24 * 60 * 60
 
     # Parse stations
     stations = None
@@ -429,15 +515,30 @@ if __name__ == '__main__':
     current_end_dt = None
     if end_date.year == current_dt.year and end_date.julday == current_dt.julday:
         current_end_dt = end_date
-    
+
     if params['debug']:
         print(f'DEBUG: start = {start_date}',
-              f'DEBUG: end = {end_date}', sep = '\n')
+              f'DEBUG: end = {end_date}', sep='\n')
+
+    current_month = -1
+    s_events = []
 
     while current_dt < end_date:
 
         if params['debug']:
             print(f'DEBUG: current_date = {current_dt}')
+
+        # Get s-files dir path
+        s_base_path = params['s_path']
+        if s_base_path[-1] != '/':
+            s_base_path += '/'
+
+        s_base_path += f'{current_dt.year:0>4d}/{current_dt.month:0>2d}/'
+
+        # TODO: Parse all s_files once per month (also filter out records with wrong stations, group by stations, etc.)
+        if current_dt.month != current_month:
+            current_month = current_dt.month
+            s_events = parse_s_dir(s_base_path, stations)
 
         # Shift date
         current_dt += 24 * 60 * 60
@@ -446,5 +547,3 @@ if __name__ == '__main__':
         current_end_dt = None
         if end_date.year == current_dt.year and end_date.julday == current_dt.julday:
             current_end_dt = end_date
-        
-
