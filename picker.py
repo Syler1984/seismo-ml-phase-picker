@@ -1,5 +1,5 @@
 import argparse
-
+from obspy.core.utcdatetime import UTCDateTime
 
 # TODO: This script should:
 #           get all data from either config/vars.py
@@ -274,6 +274,33 @@ def group_archives(archives):
     return grouped
 
 
+def date_str(year, month, day, hour=0, minute=0, second=0., microsecond = None):
+    """
+    Creates an ISO 8601 string.
+    """
+    # Get microsecond if not provided
+    if microsecond is None:
+        if type(second) is float:
+            microsecond = int((second - int(second)) * 1000000)
+        else:
+            microsecond = 0
+
+    # Convert types
+    year = int(year)
+    month = int(month)
+    day = int(day)
+    hour = int(hour)
+    minute = int(minute)
+    second = int(second)
+    microsecond = int(microsecond)
+
+    # ISO 8601 template
+    tmp = '{year}-{month}-{day}T{hour}:{minute}:{second}.{microsecond}'
+
+    return tmp.format(year=year, month=month, day=day,
+                      hour=hour, minute=minute, second=second, microsecond=microsecond)
+
+
 if __name__ == '__main__':
 
     # Default params
@@ -292,7 +319,8 @@ if __name__ == '__main__':
               'seisan_def': None,
               'stations': None,
               'allowed_channels': [['SHE', 'SHN', 'SHZ']],
-              'out': 'wave_picks'}
+              'out': 'wave_picks',
+              'debug': 0}
 
     # Only this params can be set via script arguments
     param_aliases = {'config': ['--config', '-c'],
@@ -308,7 +336,8 @@ if __name__ == '__main__':
                      's_path': ['--s_path'],
                      'seisan_def': ['--seisan_def'],
                      'stations': ['--stations'],
-                     'out': ['--out', '-o']}
+                     'out': ['--out', '-o'],
+                     'debug': ['--debug', '-d']}
 
     # Help messages
     param_help = {'config': 'Path to .ini config file',
@@ -336,7 +365,8 @@ if __name__ == '__main__':
                   's_path': 'Path to s-files database directory (e.g. "/seismo/seisan/REA/IMGG_/")',
                   'seisan_def': 'Path to SEISAN.DEF',
                   'stations': 'Path to stations file',
-                  'out': 'Output path, default: "wave_picks"'}
+                  'out': 'Output path, default: "wave_picks"',
+                  'debug': 'Enable debug info output? 1 - enable, default: 0'}
 
     # TODO: also implement params defaults and types.
     # TODO: add parameter for stations file
@@ -360,6 +390,28 @@ if __name__ == '__main__':
 
     params = parse_ini(params['config'], params_set, params = params)
 
+    # Parse dates
+    def parse_date_param(d_params, name):
+        
+        if name not in d_params:
+            return None
+        if d_params[name] is None:
+            return None
+
+        try:
+            return UTCDateTime(d_params[name])
+        except Exception:
+            print(f'Failed to parse {name}, value: {d_params[name]}.')
+
+    start_date = parse_date_param(params, 'start')
+    end_date = parse_date_param(params, 'end')
+
+    if end_date is None:
+        end_date = UTCDateTime()
+    if start_date is None:
+        start_date = UTCDateTime() - 30*24*60*60
+
+    # Parse stations
     stations = None
     if params['stations']:
         stations = process_stations_file(params['stations'])
@@ -367,14 +419,32 @@ if __name__ == '__main__':
     if not stations:
         stations = process_seisan_def(params['seisan_def'], params['allowed_channels'])
 
-    for i, s in enumerate(stations):
-
-        print(f'GROUP {i}:')
-        for x in s:
-            print(f'\t{x}')
+    # stations: GROUPS of ['VAL', 'SHZ', 'IM', '00', '20141114', '20170530']
 
     # TODO: initialize output dir and all subdirs.
 
-    # TODO: read stations if specified, create and save new one, if don't
-
     # TODO: go through every day and get all picks/dates
+    current_dt = start_date
+
+    current_end_dt = None
+    if end_date.year == current_dt.year and end_date.julday == current_dt.julday:
+        current_end_dt = end_date
+    
+    if params['debug']:
+        print(f'DEBUG: start = {start_date}',
+              f'DEBUG: end = {end_date}', sep = '\n')
+
+    while current_dt < end_date:
+
+        if params['debug']:
+            print(f'DEBUG: current_date = {current_dt}')
+
+        # Shift date
+        current_dt += 24 * 60 * 60
+        current_dt = UTCDateTime(date_str(current_dt.year, current_dt.month, current_dt.day))
+
+        current_end_dt = None
+        if end_date.year == current_dt.year and end_date.julday == current_dt.julday:
+            current_end_dt = end_date
+        
+
