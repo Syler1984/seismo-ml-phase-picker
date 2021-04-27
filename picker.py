@@ -123,11 +123,13 @@ def parse_line(line):
     return key, val, typ
 
 
-def parse_ini(filename, params_set = None):
+def parse_ini(filename, params_set = None, params = None):
     """
     Parses .ini file.
     """
     var_dictionary = {}
+    if params:
+        var_dictionary = params
 
     with open(filename, 'r') as f:
 
@@ -190,13 +192,15 @@ def process_seisan_def(path, allowed_channels):
         start_date = entry[2] if len(entry) >= 3 else None
         end_date = entry[3] if len(entry) >= 4 else None
 
-        if not check_channel(channel, allowed_channels):
-            continue
-
         records.append([station, channel, code, location, start_date, end_date])
 
     grouped_records = group_archives(records)
+
     grouped_records = filter_by_channel(grouped_records, allowed_channels)
+
+    # TODO: oreder channels?
+
+    return grouped_records
 
 
 def filter_by_channel(archives, allowed_channels):
@@ -206,6 +210,10 @@ def filter_by_channel(archives, allowed_channels):
     :param allowed_channels:
     :return:
     """
+
+    # Collections compare function
+    import collections
+    compare = lambda x, y: collections.Counter(x) == collections.Counter(y)
 
     lens = [] # Get all unique allowed channels length
     for l in [len(x) for x in allowed_channels]:
@@ -217,10 +225,19 @@ def filter_by_channel(archives, allowed_channels):
 
         if len(group) not in lens:
             continue
+        
+        gr_channels = [x[1] for x in group]
+        is_present = False
+        for ch in allowed_channels:
 
+            if compare(gr_channels, ch):
+                is_present = True
+                break
 
-    # TODO: compare length to group length
-    # TODO: compare channels
+        if is_present:
+            result_archives.append(group)
+
+    return result_archives
 
 
 def group_archives(archives):
@@ -255,22 +272,6 @@ def group_archives(archives):
         grouped.append(current_group)
 
     return grouped
-
-
-def check_channel(channel, allowed_channels):
-    """
-    Returns True if channel is in one of the allowed_channels list.
-    :param channel:
-    :param allowed_channels:
-    :return:
-    """
-
-    for ch_group in allowed_channels:
-
-        if channel in ch_group:
-            return True
-
-    return False
 
 
 if __name__ == '__main__':
@@ -357,14 +358,20 @@ if __name__ == '__main__':
             params[k] = args[k]
             params_set.append(k)
 
-    params = parse_ini(params['config'], params_set)
+    params = parse_ini(params['config'], params_set, params = params)
 
     stations = None
     if params['stations']:
         stations = process_stations_file(params['stations'])
 
     if not stations:
-        stations = process_seisan_def(args['seisan_def'])
+        stations = process_seisan_def(params['seisan_def'], params['allowed_channels'])
+
+    for i, s in enumerate(stations):
+
+        print(f'GROUP {i}:')
+        for x in s:
+            print(f'\t{x}')
 
     # TODO: initialize output dir and all subdirs.
 
