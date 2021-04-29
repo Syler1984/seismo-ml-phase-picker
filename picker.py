@@ -1,5 +1,6 @@
 import argparse
 import os
+import re
 from obspy.core.utcdatetime import UTCDateTime
 
 
@@ -323,15 +324,53 @@ def parse_s_file(path):
             events_table = lines[i + 1:]
 
     # Parse head
-    magnitude = float(head[55:59])
+    magnitude = head[55:59].strip()
+    if len(magnitude):
+        magnitude = float(magnitude)
+    else:
+        magnitude = None
+
     magnitude_type = head[59]
 
     if magnitude_type != 'L':
         print(f'In file "{path}": unsupported magnitude type "{magnitude_type}"! Skipping..')
         return
 
-    depth = head[38:43]  # in Km
-    # TODO: filter out events by magnitude and depth
+    depth = head[38:43].strip()  # in Km
+    if len(depth):
+        depth = float(depth)
+    else:
+        depth = None
+    
+    # Parse ID
+    event_id = None
+    q_id = re.compile(r'\bID:')
+    for l in lines:
+
+        f_iter = q_id.finditer(l)
+
+        found = False
+        for match in f_iter:
+            span = match.span()
+
+            if span == (57, 60):
+                found = True
+                break
+
+        if not found:
+            continue
+        
+        event_id = l[span[1] : span[1] + 14]
+ 
+        break
+
+    year = None
+    month = None
+    day = None
+    if event_id:
+        year = int(event_id[:4])
+        month = int(event_id[4:6])
+        day = int(event_id[6:8])
 
     # Parse events
     events = []
@@ -349,18 +388,82 @@ def parse_s_file(path):
         second = float(l[22:25])
         distance = float(l[70:75])
 
+        utc_datetime = UTCDateTime(date_str(year, month, day, hour, minute, second))
+        
         events.append({'station': station,
                        'instrument': instrument,
                        'channel': channel,
                        'phase': phase,
+                       'year': year,
+                       'month': month,
+                       'day': day,
                        'hour': hour,
                        'minute': minute,
                        'second': second,
                        'distance': distance,
                        'magnitude': magnitude,
-                       'depth': depth})
+                       'depth': depth,
+                       's_path': path,
+                       'utc_datetime': utc_datetime,
+                       'id': event_id})
 
     return events
+
+
+def group_events(events):
+    """
+    Groups events by ID, station, instrument and channel code.
+    """
+    
+    grouped = []
+    grouped_ids = []
+
+    for i, e in enumerate(events):
+
+        if i in grouped_ids:
+            continue
+
+        group_tag = e['id'] + e['station'] + e['instrument']
+        current_group = [e]
+        grouped_ids.append(i)
+        
+        for j in range(i + 1, len(events)):
+
+            if j in grouped_ids:
+                continue
+            
+            e2 = events[j]
+            e2_tag = e2['id'] + e2['station'] + e2['instrument']
+            if e2_tag == group_tag:
+                grouped_ids.append(j)
+                current_group.append(e2)
+
+        grouped.append(current_group)
+
+    return grouped
+
+
+def filter_events(events, stations):
+    """ 
+    Filters out phase lines with stations not defined in stations list.
+    """
+    stations_tags = []
+    for s in stations:
+
+        # Station tag = [station_name, instrument]
+        stations_tags.append([s[0][0], s[0][1][0]])
+
+    filtered = []
+    for group in events:
+        
+        event = group[0]
+        for tag in stations_tags:
+        
+            if event['station'] == tag[0] and event['instrument'] == tag[1]:
+                filtered.append(group)
+                break
+
+    return filtered
 
 
 def parse_s_dir(path, stations):
@@ -374,15 +477,22 @@ def parse_s_dir(path, stations):
 
     files = os.listdir(path)
     files = [f'{path}{f}' for f in files]
-
+    
+    all_events = []
     for f in files:
 
         events = parse_s_file(f)
 
-        print(f'FILE: {f}')
-        for e in events:
-            print(e)
-        print('\n')
+        if not events:
+            continue
+
+        events = group_events(events)
+        events = filter_events(events, stations)
+        
+        if len(events):
+            all_events.append(events)
+
+    return all_events
 
 
 if __name__ == '__main__':
@@ -535,10 +645,18 @@ if __name__ == '__main__':
 
         s_base_path += f'{current_dt.year:0>4d}/{current_dt.month:0>2d}/'
 
-        # TODO: Parse all s_files once per month (also filter out records with wrong stations, group by stations, etc.)
+        # Parse all s_files once per month
         if current_dt.month != current_month:
             current_month = current_dt.month
             s_events = parse_s_dir(s_base_path, stations)
+
+        # Go through every event and parse everything which happend today
+        for event_file in s_events:
+            for event_group in event_file:
+                for event in event_group:
+                    
+                    print(event)
+                    
 
         # Shift date
         current_dt += 24 * 60 * 60
