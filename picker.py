@@ -322,6 +322,7 @@ def parse_s_file(path):
 
         if l[:len(table_head)] == table_head:
             events_table = lines[i + 1:]
+            events_table_line_num = i + 1 + 1  # + 1 - because number should start with 1
 
     # Parse head
     magnitude = head[55:59].strip()
@@ -374,7 +375,7 @@ def parse_s_file(path):
 
     # Parse events
     events = []
-    for l in events_table:
+    for i, l in enumerate(events_table):
 
         if not len(l.strip()):
             continue
@@ -405,7 +406,8 @@ def parse_s_file(path):
                        'depth': depth,
                        's_path': path,
                        'utc_datetime': utc_datetime,
-                       'id': event_id})
+                       'id': event_id,
+                       'line_number': events_table_line_num + i})
 
     return events
 
