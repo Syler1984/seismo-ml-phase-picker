@@ -513,6 +513,7 @@ if __name__ == '__main__':
     params = {'config': 'config.ini',
               'start': None,
               'end': None,
+              'slice_range': 4., # seconds before and after event
               'min_magnitude': None,
               'max_magnitude': None,
               'min_depth': None,
@@ -531,6 +532,7 @@ if __name__ == '__main__':
     param_aliases = {'config': ['--config', '-c'],
                      'start': ['--start', '-s'],
                      'end': ['--end', '-e'],
+                     'slice_range': ['--slice_range', '--range'],
                      'min_magnitude': ['--min_magnitude'],
                      'max_magnitude': ['--max_magnitude'],
                      'min_depth': ['--min_depth'],
@@ -560,6 +562,7 @@ if __name__ == '__main__':
                          'or\n'
                          '{year}-{month}-{day}\n'
                          'default: now',
+                  'slice_range': 'Slicing range in seconds before and after wave arrival',
                   'min_magnitude': 'Minimal event magnitude allowed',
                   'max_magnitude': 'Maximal event magnitude allowed',
                   'min_depth': 'Minimal event depth allowed',
@@ -691,15 +694,63 @@ if __name__ == '__main__':
                     # Get archive files paths
                     path_template = f'{event["station"]}.{event["code"]}.{event["location"]}.' + \
                                     r'{channel}.' + \
-                                    f'{event["year"]}.{event["utc_datetime"].julday}'
+                                    f'{event["year"]}.{event["utc_datetime"].julday:0>3}'
 
                     archive_files = [base_path + path_template.format(channel = ch) for ch in channels]
 
+                    # Get slice range
+                    slice_start = event['utc_datetime'] - params['slice_range']
+                    slice_end = event['utc_datetime'] + params['slice_range']
+
+                    # TODO: make support for multi-day slices. For now, just skip them.
+                    if slice_start.julday != slice_end.julday:
+                        continue
+
+                    # TODO: go though every trace in a stream and check that slice_start and slice_end are in one discontinued trace
+
                     # Cut traces and save them into hdf5 (buffered), also save metadata, generate unique id.
                     # i suggest: event_id + station + random 4-digit number
+                    traces = []
+                    for i, a_f in enumerate(archive_files):
+                        # Check if archive files exist
+                        if not os.path.isfile(a_f):
+                            print(f'Event ID {event["id"]}, station {event["station"]}: ' + \
+                                  f'Archive file does not exist {a_f}; Skipping phase.')
+                            break
 
-                    print('EVENT: ', event)
-                    print('FILES: ', archive_files)
+                        # Load archive
+                        st = read(a_f)
+
+                        # Continuity check
+
+
+                        # Slice
+                        st = st.slice(slice_start, slice_end)
+
+                        # If there are not exactly 1 trace, something is wrong
+                        if len(st) != 1:
+                            break
+
+                        traces.append(st[0])
+
+                    if len(traces) != len(archive_files):
+                        continue
+                    
+                    # Save trace data
+                    # X set - data
+                    # Y set - label 
+                    # ID set - ID string
+                    # LINE set - number of the line in corresponding S file
+                    # TODO: add phase_labels param
+                    # TODO: and check, if phase is not in there, then do not pick
+                    # TODO: add gather_noise and noise_picker_phase (default P), and picks noise before this phase
+                    # TODO: also create function which gets archive_files list, start time, end time and returns slices
+                    # TODO: save absolute line number for every event
+                    
+                    # Save trace_meta_data
+
+                    # print('EVENT: ', event)
+                    # print('FILES: ', archive_files)
                     
 
         # Shift date
