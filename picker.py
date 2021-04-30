@@ -2,7 +2,8 @@ import argparse
 import os
 import re
 from obspy.core.utcdatetime import UTCDateTime
-
+import obspy.core as oc
+from obspy import read
 
 # TODO: This script should:
 #           get all data from either config/vars.py
@@ -249,7 +250,6 @@ def group_archives(archives):
     :param archives:
     :return:
     """
-
     grouped = []
     grouped_ids = []
     for i in range(len(archives)):
@@ -445,13 +445,17 @@ def group_events(events):
 
 def filter_events(events, stations):
     """ 
-    Filters out phase lines with stations not defined in stations list.
+    Filters out phase lines with stations not defined in stations list. Also adds code and location to events.
     """
     stations_tags = []
     for s in stations:
 
-        # Station tag = [station_name, instrument]
-        stations_tags.append([s[0][0], s[0][1][0]])
+        # Station tag = [station_name, instrument, code, location, algorythm]
+        algorythm = '',
+        if len(s[0][1]) == 3:
+            algorythm = s[0][1][1]
+        
+        stations_tags.append([s[0][0], s[0][1][0], s[0][2], s[0][3], algorythm])
 
     filtered = []
     for group in events:
@@ -461,6 +465,13 @@ def filter_events(events, stations):
         
             if event['station'] == tag[0] and event['instrument'] == tag[1]:
                 filtered.append(group)
+
+                # Add code and location
+                for e in group:
+                    e['code'] = tag[2]
+                    e['location'] = tag[3]
+                    e['algorythm'] = tag[4]
+
                 break
 
     return filtered
@@ -584,7 +595,6 @@ if __name__ == '__main__':
 
     params = parse_ini(params['config'], params_set, params=params)
 
-
     # Parse dates
     def parse_date_param(d_params, name):
 
@@ -633,6 +643,10 @@ if __name__ == '__main__':
     current_month = -1
     s_events = []
 
+    # Fix archive_path
+    if params['archive_path'][-1] != '/':
+        params['archive_path'] += '/'
+
     while current_dt < end_date:
 
         if params['debug']:
@@ -654,8 +668,38 @@ if __name__ == '__main__':
         for event_file in s_events:
             for event_group in event_file:
                 for event in event_group:
+                   
+                    # Compare dates
+
+                    # Get path to archive:
+                    # archives_path/code/station/station.code.location.channel.year.julday
+                    # where channel = instrument + algorythm + actuall channel (last letter in allowed_channels)
+                    base_path = f'{params["archive_path"]}{event["code"]}/{event["station"]}/'
                     
-                    print(event)
+                    # Get relevant channels
+                    ch_tag = f'{event["instrument"]}{event["algorythm"]}'
+                    channels = None
+                    for ch_group in params['allowed_channels']:
+                        
+                        if ch_tag == ch_group[0][:2]:
+                            channels = ch_group
+                            break
+
+                    if not channels:
+                        continue
+                    
+                    # Get archive files paths
+                    path_template = f'{event["station"]}.{event["code"]}.{event["location"]}.' + \
+                                    r'{channel}.' + \
+                                    f'{event["year"]}.{event["utc_datetime"].julday}'
+
+                    archive_files = [base_path + path_template.format(channel = ch) for ch in channels]
+
+                    # Cut traces and save them into hdf5 (buffered), also save metadata, generate unique id.
+                    # i suggest: event_id + station + random 4-digit number
+
+                    print('EVENT: ', event)
+                    print('FILES: ', archive_files)
                     
 
         # Shift date
