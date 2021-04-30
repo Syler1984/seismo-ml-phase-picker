@@ -508,6 +508,41 @@ def parse_s_dir(path, stations):
     return all_events
 
 
+def slice_archives(archives, start, end):
+    """
+    This function reads archives from provided list of filenames and slices them.
+    :param archives: List of full archives file names.
+    :param start: obspy UTCDateTime slice start time.
+    :param end: obspy UTCDateTime slice end time.
+    :return: List of obspy Trace objects.
+    """
+    traces = []
+    for a_f in archives:
+        # Check if archive files exist
+        if not os.path.isfile(a_f):
+            print(f'Archive file does not exist {a_f}; Skipping phase.')
+            return None
+
+        # Load archive
+        st = read(a_f)
+
+        # TODO: Continuity check
+
+        # Slice
+        st = st.slice(start, end)
+
+        # If there are not exactly 1 trace, something is wrong
+        if len(st) != 1:
+            return None
+
+        traces.append(st[0])
+
+    if len(traces) != len(archives):
+        return None
+
+    return traces
+
+
 if __name__ == '__main__':
 
     # Default params
@@ -708,45 +743,22 @@ if __name__ == '__main__':
                     if slice_start.julday != slice_end.julday:
                         continue
 
-                    # TODO: go though every trace in a stream and check that slice_start and slice_end are in one discontinued trace
+                    # TODO: go though every trace in a stream
+                    #  and check that slice_start and slice_end are in one discontinued trace
+                    traces = slice_archives(archive_files, slice_start, slice_end)
 
                     # Cut traces and save them into hdf5 (buffered), also save metadata, generate unique id.
                     # i suggest: event_id + station + random 4-digit number
-                    traces = []
-                    for i, a_f in enumerate(archive_files):
-                        # Check if archive files exist
-                        if not os.path.isfile(a_f):
-                            print(f'Event ID {event["id"]}, station {event["station"]}: ' + \
-                                  f'Archive file does not exist {a_f}; Skipping phase.')
-                            break
 
-                        # Load archive
-                        st = read(a_f)
-
-                        # Continuity check
-
-
-                        # Slice
-                        st = st.slice(slice_start, slice_end)
-
-                        # If there are not exactly 1 trace, something is wrong
-                        if len(st) != 1:
-                            break
-
-                        traces.append(st[0])
-
-                    if len(traces) != len(archive_files):
-                        continue
-                    
                     # Save trace data
                     # X set - data
                     # Y set - label 
                     # ID set - ID string
-                    # LINE set - number of the line in corresponding S file
+                    # LINE set - number of the line in corresponding S file, use event['line_number']
                     # TODO: add phase_labels param
-                    # TODO: and check, if phase is not in there, then do not pick
+                    #  and check, if phase is not in there, then do not pick
                     # TODO: add gather_noise and noise_picker_phase (default P), and picks noise before this phase
-                    # TODO: also create function which gets archive_files list, start time, end time and returns slices
+                    #  also create function which gets archive_files list, start time, end time and returns slices
                     # TODO: save absolute line number for every event
                     
                     # Save trace_meta_data
