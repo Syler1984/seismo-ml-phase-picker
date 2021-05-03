@@ -7,6 +7,7 @@ import obspy.core as oc
 from obspy import read
 import h5py as h5
 import pandas as pd
+import numpy as np
 
 # TODO: This script should:
 #           get all data from either config/vars.py
@@ -511,7 +512,7 @@ def parse_s_dir(path, stations):
     return all_events
 
 
-def slice_archives(archives, start, end):
+def slice_archives(archives, start, end, frequency):
     """
     This function reads archives from provided list of filenames and slices them.
     :param archives: List of full archives file names.
@@ -530,6 +531,17 @@ def slice_archives(archives, start, end):
         st = read(a_f)
 
         # TODO: Continuity check
+        
+        # Pre-process
+        # TODO: Add some params check (e.g. highpass? Hz? Normalize? detrend?)
+        st.detrend(type = "linear")
+        st.filter(type = "highpass", freq = 2)
+
+        # Convert frequency
+        required_dt = 1. / frequency
+        dt = st[0].stats.delta
+        if dt != required_dt:
+            st.interpolate(frequency)
 
         # Slice
         st = st.slice(start, end)
@@ -581,7 +593,7 @@ if __name__ == '__main__':
     params = {'config': 'config.ini',
               'start': None,
               'end': None,
-              'slice_range': 4., # seconds before and after event
+              'slice_range': 2., # seconds before and after event
               'min_magnitude': None,
               'max_magnitude': None,
               'min_depth': None,
@@ -592,12 +604,16 @@ if __name__ == '__main__':
               's_path': None,
               'seisan_def': None,
               'stations': None,
-              'allowed_channels': [['SHE', 'SHN', 'SHZ']],
+              'allowed_channels': [['SHZ', 'SHN', 'SHE']],
               'frequency': 100.,
               'out': 'wave_picks',
               'debug': 0,
               'out_hdf5': 'data.hdf5',
-              'out_csv': 'data.csv'}
+              'out_csv': 'data.csv',
+              'phase_labels': {'P': 0, 'S': 1, 'N': 2},
+              'noise_picking': True,
+              'noise_picker_phase': 'P',
+              'noise_phase_before': 4.}
 
     # Only this params can be set via script arguments
     param_aliases = {'config': ['--config', '-c'],
@@ -718,7 +734,7 @@ if __name__ == '__main__':
     # TODO: go through every day and get all picks/dates
     current_dt = start_date
 
-    current_end_dt = None
+    current_end_dt = UTCDateTime(date_str(current_dt.year, current_dt.month, current_dt.day, 23, 59, 59))
     if end_date.year == current_dt.year and end_date.julday == current_dt.julday:
         current_end_dt = end_date
 
@@ -736,7 +752,7 @@ if __name__ == '__main__':
     while current_dt < end_date:
 
         if params['debug']:
-            print(f'DEBUG: current_date = {current_dt}')
+            print(f'DEBUG: current_date = {current_dt} current_end_date: {current_end_dt}')
 
         # Get s-files dir path
         s_base_path = params['s_path']
@@ -785,14 +801,115 @@ if __name__ == '__main__':
                     slice_start = event['utc_datetime'] - params['slice_range']
                     slice_end = event['utc_datetime'] + params['slice_range']
 
+                    # Check if dates are valid
+                    if slice_start < current_dt or slice_end < current_dt:
+                        continue
+                    if slice_start > current_end_dt or slice_end > current_end_dt:
+                        continue
+
                     # TODO: make support for multi-day slices. For now, just skip them.
                     if slice_start.julday != slice_end.julday:
                         continue
 
                     # TODO: go though every trace in a stream
                     #  and check that slice_start and slice_end are in one discontinued trace
-                    traces = slice_archives(archive_files, slice_start, slice_end)
+                    traces = slice_archives(archive_files, slice_start, slice_end, params['frequency'])
+
+                    if not traces:
+                        continue
+
+                    # Slice noise?
+                    noise_phase = None
+                    if params['noise_picking']:
+
+                        phase = event['phase'].strip()
+
+                        if phase == params['noise_picker_phase']:
+
+                            # Get slice range
+                            slice_start = event['utc_datetime'] - params['noise_phase_before'] - params['slice_range']
+                            slice_end = event['utc_datetime'] - params['noise_phase_before'] + params['slice_range']
+
+                            # Check if dates are valid
+                            if slice_start < current_dt or slice_end < current_dt:
+                                continue
+                            if slice_start > current_end_dt or slice_end > current_end_dt:
+                                continue
+
+                            # TODO: make support for multi-day slices. For now, just skip them.
+                            if slice_start.julday != slice_end.julday:
+                                continue
+
+                            # TODO: go though every trace in a stream
+                            #  and check that slice_start and slice_end are in one discontinued trace
+                            noise_phase = slice_archives(archive_files, slice_start, slice_end, params['frequency'])
+
+                    # Convert to NumPy arrays
+                    trace_length = int(params['frequency'] * params['slice_range'] * 2)
+                    ch_num = len(traces)
+                    X = np.zeros((trace_length, ch_num))
+                    Y = np.zeros(1)
+
+                    for i, tr in enumerate(traces):
+
+                        X[:, i] = tr.data[:trace_length]
+
+                    if event['phase'].strip() in params['phase_labels']:
+                        phase_code = params['phase_labels'][event['phase'].strip()]
+                    else:
+                        continue
+
+                    Y[0] = phase_code
+
+                    np_id = [f'{event["id"]}_l{event["line_number"]}_s{event["station"]}']
+                    np_id = np.array(np_id, dtype = object)
                     
+                    X_shape = [1, 0, 0]
+                    X_shape[1:] = list(X.shape)
+                    X_shape = tuple(X_shape)
+
+                    # Normalize
+                    X_norm = np.linalg.norm(X)
+                    X = X / X_norm
+
+                    # Reshape to (1, -1, -1)
+                    X = X.reshape(X_shape)
+
+                    # Prepare noise
+                    if noise_phase:
+                        
+                        X_noise = np.zeros((trace_length, ch_num))
+                        Y_noise = np.zeros(1)
+
+                        for i, tr in enumerate(noise_phase):
+
+                            X_noise[:, i] = tr.data[:trace_length]
+
+                        Y_noise[0] = params['phase_labels']['N']
+
+                        np_noise_id = np.array(['NOISE'], dtype = object)
+
+                        X_norm = np.linalg.norm(X_noise)
+                        X_noise = X_noise / X_norm
+
+                        X_noise = X_noise.reshape(X_shape)
+                    
+                    # Write to hdf5
+                    write_batch(params['out_hdf5'], 'X', X)
+                    write_batch(params['out_hdf5'], 'Y', Y)
+                    write_batch(params['out_hdf5'], 'ID', np_id, string = True)
+
+                    if noise_phase:
+
+                        write_batch(params['out_hdf5'], 'X', X_noise)
+                        write_batch(params['out_hdf5'], 'Y', Y_noise)
+                        write_batch(params['out_hdf5'], 'ID', np_noise_id, string = True)
+
+                    if params['debug']:
+                        print(f'DEBUG: HDF5 data saved (LINE {event["line_number"]}) EVENT DT: {event["utc_datetime"]}')
+                        print('DEBUG: archive files: ', archive_files)
+                    
+
                     # Cut traces and save them into hdf5 (buffered), also save metadata, generate unique id.
                     # i suggest: event_id + station + random 4-digit number
 
@@ -815,8 +932,8 @@ if __name__ == '__main__':
 
         # Shift date
         current_dt += 24 * 60 * 60
+        current_end_dt = UTCDateTime(date_str(current_dt.year, current_dt.month, current_dt.day, 23, 59, 59))
         current_dt = UTCDateTime(date_str(current_dt.year, current_dt.month, current_dt.day))
 
-        current_end_dt = None
         if end_date.year == current_dt.year and end_date.julday == current_dt.julday:
             current_end_dt = end_date
