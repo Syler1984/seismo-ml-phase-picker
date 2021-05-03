@@ -1,9 +1,12 @@
 import argparse
 import os
+import sys
 import re
 from obspy.core.utcdatetime import UTCDateTime
 import obspy.core as oc
 from obspy import read
+import h5py as h5
+import pandas as pd
 
 # TODO: This script should:
 #           get all data from either config/vars.py
@@ -562,8 +565,11 @@ if __name__ == '__main__':
               'seisan_def': None,
               'stations': None,
               'allowed_channels': [['SHE', 'SHN', 'SHZ']],
+              'frequency': 100.,
               'out': 'wave_picks',
-              'debug': 0}
+              'debug': 0,
+              'out_hdf5': 'data.hdf5',
+              'out_csv': 'data.csv'}
 
     # Only this params can be set via script arguments
     param_aliases = {'config': ['--config', '-c'],
@@ -664,10 +670,22 @@ if __name__ == '__main__':
 
     if not stations:
         stations = process_seisan_def(params['seisan_def'], params['allowed_channels'])
-
     # stations: GROUPS of ['VAL', 'SHZ', 'IM', '00', '20141114', '20170530']
 
-    # TODO: initialize output dir and all subdirs.
+    # Initialize output directory
+    if not os.path.isdir(params['out']):
+
+        if os.path.isfile(params['out']):
+            print(f'--out: {params["out"]} is not a directory!')
+            sys.exit(0)
+
+        os.makedirs(params['out'])
+
+    if params['out'][-1] != '/':
+        params['out'] += '/'
+
+    # Initialize .csv and .hdf5 output files
+     
 
     # TODO: go through every day and get all picks/dates
     current_dt = start_date
@@ -746,7 +764,7 @@ if __name__ == '__main__':
                     # TODO: go though every trace in a stream
                     #  and check that slice_start and slice_end are in one discontinued trace
                     traces = slice_archives(archive_files, slice_start, slice_end)
-
+                    
                     # Cut traces and save them into hdf5 (buffered), also save metadata, generate unique id.
                     # i suggest: event_id + station + random 4-digit number
 
