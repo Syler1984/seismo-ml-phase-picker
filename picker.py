@@ -390,8 +390,27 @@ def parse_s_file(path):
         phase = l[10:14]
         hour = int(l[18:20])
         minute = int(l[20:22])
-        second = float(l[22:25])
+        second = float(l[22:28])
         distance = float(l[70:75])
+
+        if second >= 60.:
+            
+            minute_add = second // 60
+            second = (second % 60)
+
+            minute += minute_add
+            minute = int(minute)
+
+        if minute >= 60:
+
+            if hour != 23:
+                minute = 0
+                hour += 1
+            else:
+                minute = 59
+       
+            minute = int(minute)
+            hour = int(hour)
 
         utc_datetime = UTCDateTime(date_str(year, month, day, hour, minute, second))
         
@@ -869,8 +888,8 @@ if __name__ == '__main__':
                     X_shape = tuple(X_shape)
 
                     # Normalize
-                    X_norm = np.linalg.norm(X)
-                    X = X / X_norm
+                    X_max = np.max(np.abs(X))
+                    X = X / X_max
 
                     # Reshape to (1, -1, -1)
                     X = X.reshape(X_shape)
@@ -889,8 +908,8 @@ if __name__ == '__main__':
 
                         np_noise_id = np.array(['NOISE'], dtype = object)
 
-                        X_norm = np.linalg.norm(X_noise)
-                        X_noise = X_noise / X_norm
+                        X_max = np.max(np.abs(X_noise))
+                        X_noise = X_noise / X_max
 
                         X_noise = X_noise.reshape(X_shape)
                     
