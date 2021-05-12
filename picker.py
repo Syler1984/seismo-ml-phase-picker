@@ -6,7 +6,6 @@ from obspy.core.utcdatetime import UTCDateTime
 import obspy.core as oc
 from obspy import read
 import h5py as h5
-import pandas as pd
 import numpy as np
 
 # TODO: This script should:
@@ -302,20 +301,31 @@ def date_str(year, month, day, hour=0, minute=0, second=0., microsecond=None):
     microsecond = int(microsecond)
 
     # ISO 8601 template
-    tmp = '{year}-{month}-{day}T{hour}:{minute}:{second}.{microsecond}'
+    tmp = '{year}-{month:0>2d}-{day:0>2d}T{hour:0>2d}:{minute:0>2d}:{second}.{microsecond}'
 
     return tmp.format(year=year, month=month, day=day,
                       hour=hour, minute=minute, second=second, microsecond=microsecond)
 
 
-def parse_s_file(path):
+def parse_s_file(path, params):
     """
     Parses s-file and returns all its events readings.
     :param path:
     :return:
     """
-    with open(path, 'r') as f:
-        lines = f.readlines()
+    try:
+        with open(path, 'r') as f:
+            lines = f.readlines()
+    except UnicodeDecodeError:
+        return
+    except FileNotFoundError:
+        return
+
+    d_path = '02-0422-22D.S201601'
+    h_path = path.split('/')[-1]
+
+    if d_path == h_path:
+        print(f'FOUND {path}')
 
     head = lines[0]
 
@@ -384,14 +394,17 @@ def parse_s_file(path):
         if not len(l.strip()):
             continue
 
-        station = l[1:6]
-        instrument = l[6]
-        channel = l[7]
-        phase = l[10:14]
-        hour = int(l[18:20])
-        minute = int(l[20:22])
-        second = float(l[22:28])
-        distance = float(l[70:75])
+        try:
+            station = l[1:6].strip()
+            instrument = l[6]
+            channel = l[7]
+            phase = l[10:14].strip()
+            hour = int(l[18:20].strip())
+            minute = int(l[20:22].strip())
+            second = float(l[22:28].strip())
+            distance = float(l[70:75].strip())
+        except ValueError as e:
+            continue
 
         if second >= 60.:
             
@@ -412,8 +425,28 @@ def parse_s_file(path):
             minute = int(minute)
             hour = int(hour)
 
+        if hour >= 24:
+            continue
+
         utc_datetime = UTCDateTime(date_str(year, month, day, hour, minute, second))
+
+        # Events filtering
+        # TODO: Replace all min/max code for something better, that does full min and max support and checks for None values
+        if params['min_magnitude'] and (not magnitude or magnitude < float(params['min_magnitude'])):
+            if params['debug']:
+                print(f'DEBUG: Skipping event in {path}. Reason: low magnitude ({magnitude}).')
+            return
         
+        if params['max_depth'] and (not depth or depth > float(params['max_depth'])):
+            if params['debug']:
+                print(f'DEBUG: Skipping event in {path}. Reason: high depth ({depth}).')
+            return
+ 
+        if params['max_distance'] and (not distance or distance > float(params['max_distance'])):
+            if params['debug']:
+                print(f'DEBUG: Skipping event in {path}. Reason: high distance ({distance}).')
+            return
+
         events.append({'station': station,
                        'instrument': instrument,
                        'channel': channel,
@@ -431,6 +464,11 @@ def parse_s_file(path):
                        'utc_datetime': utc_datetime,
                        'id': event_id,
                        'line_number': events_table_line_num + i})
+
+    if d_path == h_path:
+        print('RETURN:')
+        for i, s in enumerate(events):
+            print(f'{i}: {s}')
 
     return events
 
@@ -468,7 +506,7 @@ def group_events(events):
     return grouped
 
 
-def filter_events(events, stations):
+def filter_events(events, stations, db = False):
     """ 
     Filters out phase lines with stations not defined in stations list. Also adds code and location to events.
     """
@@ -481,6 +519,12 @@ def filter_events(events, stations):
             algorythm = s[0][1][1]
         
         stations_tags.append([s[0][0], s[0][1][0], s[0][2], s[0][3], algorythm])
+    
+    if db:
+        print('TAGS:')
+        for x in stations_tags:
+            print(x)
+        print('')
 
     filtered = []
     for group in events:
@@ -502,7 +546,7 @@ def filter_events(events, stations):
     return filtered
 
 
-def parse_s_dir(path, stations):
+def parse_s_dir(path, stations, params):
     """
     Scans path directory, parses all s-files and returns filtered events_list grouped by stations.
     :param path - path to the directory
@@ -511,22 +555,51 @@ def parse_s_dir(path, stations):
     if path[-1] != '/':
         path += '/'
 
-    files = os.listdir(path)
-    files = [f'{path}{f}' for f in files]
+    try:
+        files = os.listdir(path)
+        files = [f'{path}{f}' for f in files]
+    except FileNotFoundError:
+        return
     
     all_events = []
     for f in files:
 
-        events = parse_s_file(f)
+        events = parse_s_file(f, params)
+
+        # TODO: remove this debug output
+        d_path = '02-0422-22D.S201601'
+        h_path = f.split('/')[-1]
+        if d_path == h_path and events:
+            print(f'\n\nFOUND LENGTH = {len(events)}')
 
         if not events:
             continue
 
         events = group_events(events)
-        events = filter_events(events, stations)
-        
+
+        if d_path == h_path:
+            print(f'GROUP LENGTH {len(events)}')
+
+        if d_path == h_path:
+            print('\nSTATIONS:')
+            for x in stations:
+                print(x)
+            print('')
+
+        if d_path == h_path:
+            events = filter_events(events, stations, True)
+        else:
+            events = filter_events(events, stations)
+
+
+        if d_path == h_path:
+            print(f'FILTERED LENGTH {len(events)}')        
+ 
         if len(events):
             all_events.append(events)
+
+        if d_path == h_path:
+            print(f'FINAL LENGTH: {len(events)}\n\n')
 
     return all_events
 
@@ -540,6 +613,7 @@ def slice_archives(archives, start, end, frequency):
     :return: List of obspy Trace objects.
     """
     traces = []
+    print('-' * 25)
     for a_f in archives:
         # Check if archive files exist
         if not os.path.isfile(a_f):
@@ -569,7 +643,10 @@ def slice_archives(archives, start, end, frequency):
         if len(st) != 1:
             return None
 
+        print('DEBUG: TRACE: ', a_f)
         traces.append(st[0])
+ 
+    print('-' * 25)
 
     if len(traces) != len(archives):
         return None
@@ -623,7 +700,7 @@ if __name__ == '__main__':
               's_path': None,
               'seisan_def': None,
               'stations': None,
-              'allowed_channels': [['SHZ', 'SHN', 'SHE']],
+              'allowed_channels': [['SHN', 'SHE', 'SHZ']],
               'frequency': 100.,
               'out': 'wave_picks',
               'debug': 0,
@@ -783,7 +860,10 @@ if __name__ == '__main__':
         # Parse all s_files once per month
         if current_dt.month != current_month:
             current_month = current_dt.month
-            s_events = parse_s_dir(s_base_path, stations)
+            s_events = parse_s_dir(s_base_path, stations, params)
+
+        if not s_events:
+            s_events = []
 
         # Go through every event and parse everything which happend today
         for event_file in s_events:
@@ -807,6 +887,8 @@ if __name__ == '__main__':
                             break
 
                     if not channels:
+                        if params['debug']:
+                            print(f'DEBUG: Skipping event: {event["s_path"]} - channels not allowed!')
                         continue
                     
                     # Get archive files paths
@@ -825,7 +907,7 @@ if __name__ == '__main__':
                         continue
                     if slice_start > current_end_dt or slice_end > current_end_dt:
                         continue
-
+                    
                     # TODO: make support for multi-day slices. For now, just skip them.
                     if slice_start.julday != slice_end.julday:
                         continue
@@ -835,8 +917,10 @@ if __name__ == '__main__':
                     traces = slice_archives(archive_files, slice_start, slice_end, params['frequency'])
 
                     if not traces:
+                        if params['debug']:
+                            print('DEBUG: Skipping, no traces sliced!')
                         continue
-
+                    
                     # Slice noise?
                     noise_phase = None
                     if params['noise_picking']:
@@ -869,9 +953,16 @@ if __name__ == '__main__':
                     X = np.zeros((trace_length, ch_num))
                     Y = np.zeros(1)
 
+                    skip = False
                     for i, tr in enumerate(traces):
-
+			
+                        if tr.data.shape[0] < trace_length:
+                            skip = True
+                            break
                         X[:, i] = tr.data[:trace_length]
+
+                    if skip:
+                        continue
 
                     if event['phase'].strip() in params['phase_labels']:
                         phase_code = params['phase_labels'][event['phase'].strip()]
@@ -926,7 +1017,7 @@ if __name__ == '__main__':
 
                     if params['debug']:
                         print(f'DEBUG: HDF5 data saved (LINE {event["line_number"]}) EVENT DT: {event["utc_datetime"]}')
-                        print('DEBUG: archive files: ', archive_files)
+                        # print('DEBUG: archive files: ', archive_files)
                     
 
                     # Cut traces and save them into hdf5 (buffered), also save metadata, generate unique id.
