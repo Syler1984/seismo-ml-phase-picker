@@ -438,6 +438,7 @@ def parse_s_file(path, params):
                 print(f'DEBUG: Skipping event in {path}. Reason: low magnitude ({magnitude}).')
             return
         
+
         if params['max_depth'] and (not depth or depth > float(params['max_depth'])):
             if params['debug']:
                 print(f'DEBUG: Skipping event in {path}. Reason: high depth ({depth}).')
@@ -700,7 +701,7 @@ if __name__ == '__main__':
               'allowed_channels': [['SHN', 'SHE', 'SHZ']],
               'frequency': 100.,
               'out': 'wave_picks',
-              'debug': 0,
+              'debug': False,
               'out_hdf5': 'data.hdf5',
               'out_csv': 'data.csv',
               'phase_labels': {'P': 0, 'S': 1, 'N': 2},
@@ -756,14 +757,24 @@ if __name__ == '__main__':
                   'out': 'Output path, default: "wave_picks"',
                   'debug': 'Enable debug info output? 1 - enable, default: 0'}
 
+    # Param actions
+    param_actions = {'debug': 'store_true'}
+
     # TODO: also implement params defaults and types.
     # TODO: add parameter for stations file
 
     # Setup argument parser
-    parser = argparse.ArgumentParser(formatter_class=argparse.RawTextHelpFormatter)
+    parser = argparse.ArgumentParser(description='Seisan database waveform picker, creates ' +
+                                                 'a h5 dataset with P, S and Noise waveforms stored. ' +
+                                                 'Or append if dataset file already created.',
+                                     formatter_class=argparse.RawTextHelpFormatter)
 
     for k in param_aliases:
-        parser.add_argument(*param_aliases[k], help=param_help[k])
+
+        if k in param_actions:
+            parser.add_argument(*param_aliases[k], help=param_help[k], action = param_actions[k])
+        else:
+            parser.add_argument(*param_aliases[k], help=param_help[k])
 
     args = parser.parse_args()
     args = vars(args)
@@ -877,6 +888,7 @@ if __name__ == '__main__':
                     ch_tag = f'{event["instrument"]}{event["algorythm"]}'
                     channels = None
                     for ch_group in params['allowed_channels']:
+
                         if ch_tag == ch_group[0][:2]:
                             channels = ch_group
                             break
