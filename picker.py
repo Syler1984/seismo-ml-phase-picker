@@ -347,9 +347,10 @@ def parse_s_file(path, params):
         magnitude = None
 
     magnitude_type = head[59]
+    loc = head[21]
 
-    if magnitude_type != 'L':
-        print(f'In file "{path}": unsupported magnitude type "{magnitude_type}"! Skipping..')
+    if loc != 'L':
+        print(f'In file "{path}": unsupported locale type "{loc}"! Skipping..')
         return
 
     depth = head[38:43].strip()  # in Km
@@ -471,7 +472,6 @@ def parse_s_file(path, params):
         print('RETURN:')
         for i, s in enumerate(events):
             print(f'{i}: {s}')
-
     return events
 
 
@@ -621,14 +621,22 @@ def slice_archives(archives, start, end, frequency):
             return None
 
         # Load archive
-        st = read(a_f)
+        try:
+            st = read(a_f)
+        except TypeError:
+            print(f'TypeError while oc.read file {a_f}; Skipping phase.')
+            return None
 
         # TODO: Continuity check
 
         # Pre-process
         # TODO: Add some params check (e.g. highpass? Hz? Normalize? detrend?)
         st.detrend(type = "linear")
-        st.filter(type = "highpass", freq = 2)
+        try:
+            st.filter(type = "highpass", freq = 2)
+        except ValueError:
+            print(f'ValueError while filtering archive {a_f}; Skipping phase.')
+            return None
 
         # Convert frequency
         required_dt = 1. / frequency
@@ -698,7 +706,10 @@ if __name__ == '__main__':
               's_path': None,
               'seisan_def': None,
               'stations': None,
-              'allowed_channels': [['SHN', 'SHE', 'SHZ']],
+              'allowed_channels': [
+                  ['SHN', 'SHE', 'SHZ'],
+                  ['BHN', 'BHE', 'BHZ'],
+              ],
               'frequency': 100.,
               'out': 'wave_picks',
               'debug': False,
@@ -818,6 +829,7 @@ if __name__ == '__main__':
 
     if not stations:
         stations = process_seisan_def(params['seisan_def'], params['allowed_channels'])
+
     # stations: GROUPS of ['VAL', 'SHZ', 'IM', '00', '20141114', '20170530']
 
     # Initialize output directory
