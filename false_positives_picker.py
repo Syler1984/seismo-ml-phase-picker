@@ -43,9 +43,9 @@ param_aliases = {
     'stations': ['--stations'],
     'out': ['--out', '-o'],
     'debug': ['--debug', '-d'],
-    'seismo': ['--seismo', '-d'],
-    'favor': ['--favor', '-d'],
-    'cnn': ['--cnn', '-d']
+    'seismo': ['--seismo'],
+    'favor': ['--favor'],
+    'cnn': ['--cnn']
 }
 
 # Help messages
@@ -71,7 +71,10 @@ param_help = {
     'seisan_def': 'Path to SEISAN.DEF',
     'stations': 'Path to stations file',
     'out': 'Output path, default: "wave_picks"',
-    'debug': 'Enable debug info output? 1 - enable, default: 0'
+    'debug': 'Enable debug info output',
+    'seismo': 'Load default Seismo-Transformer',
+    'favor': 'Load fast-attention Seismo-Transformer',
+    'cnn': 'Load fast-attention Seismo-Transformer with CNN'
 }
 
 # Param actions
