@@ -310,12 +310,12 @@ def filter_events(events, stations, db = False):
     stations_tags = []
     for s in stations:
 
-        # Station tag = [station_name, instrument, code, location, algorythm]
-        algorythm = '',
+        # Station tag = [station_name, instrument, code, location, algorithm]
+        algorithm = '',
         if len(s[0][1]) == 3:
-            algorythm = s[0][1][1]
+            algorithm = s[0][1][1]
 
-        stations_tags.append([s[0][0], s[0][1][0], s[0][2], s[0][3], algorythm])
+        stations_tags.append([s[0][0], s[0][1][0], s[0][2], s[0][3], algorithm])
 
     if db:
         print('TAGS:')
@@ -336,7 +336,7 @@ def filter_events(events, stations, db = False):
                 for e in group:
                     e['code'] = tag[2]
                     e['location'] = tag[3]
-                    e['algorythm'] = tag[4]
+                    e['algorithm'] = tag[4]
 
                 break
 
