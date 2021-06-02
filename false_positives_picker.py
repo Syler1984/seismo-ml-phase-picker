@@ -290,3 +290,11 @@ if __name__ == '__main__':
         print('CURRENT TRUE POSITIVES:')
         print(current_true_positives)
         print('-' * 40)
+
+        # Shift date
+        current_dt += 24 * 60 * 60
+        current_end_dt = UTCDateTime(date_str(current_dt.year, current_dt.month, current_dt.day, 23, 59, 59))
+        current_dt = UTCDateTime(date_str(current_dt.year, current_dt.month, current_dt.day))
+
+        if end_date.year == current_dt.year and end_date.julday == current_dt.julday:
+            current_end_dt = end_date
