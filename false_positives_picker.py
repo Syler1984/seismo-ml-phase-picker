@@ -174,22 +174,31 @@ if __name__ == '__main__':
     if params['seismo']:
         print('Loading default Seismo-Transformer')
         # Check model weights
-        if not params['weights'] and not default_model_weights['seismo']:
-            raise AttributeError('No model weights provided!')
+        if not params['weights']:
+            if not default_model_weights['seismo']:
+                raise AttributeError('No model weights provided!')
+            else:
+                params['weight'] = default_model_weights['seismo']
 
         model = seismo_load.load_transformer(params['weights'])
     elif params['favor']:
         print('Loading fast-attention Seismo-Transformer')
         # Check model weights
-        if not params['weights'] and not default_model_weights['favor']:
-            raise AttributeError('No model weights provided!')
+        if not params['weights']:
+            if not default_model_weights['favor']:
+                raise AttributeError('No model weights provided!')
+            else:
+                params['weight'] = default_model_weights['favor']
 
         model = seismo_load.load_favor(params['weights'])
     elif params['cnn']:
         print('Loading fast-attention Seismo-Transformer with CNN')
         # Check model weights
-        if not params['weights'] and not default_model_weights['cnn']:
-            raise AttributeError('No model weights provided!')
+        if not params['weights']:
+            if not default_model_weights['cnn']:
+                raise AttributeError('No model weights provided!')
+            else:
+                params['weight'] = default_model_weights['cnn']
 
         model = seismo_load.load_cnn(params['weights'])
     else:
