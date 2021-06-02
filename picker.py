@@ -3,7 +3,6 @@ import os
 import sys
 import re
 from obspy.core.utcdatetime import UTCDateTime
-import obspy.core as oc
 from obspy import read
 import h5py as h5
 import numpy as np
@@ -332,7 +331,7 @@ def parse_s_file(path, params):
 
     # Find events table
     table_head = ' STAT SP IPHASW D HRMM SECON CODA AMPLIT PERI AZIMU VELO AIN AR TRES W  DIS CAZ7'
-
+    events_table_line_num = 0
     for i, l in enumerate(lines):
 
         if l[:len(table_head)] == table_head:
@@ -624,7 +623,7 @@ def slice_archives(archives, start, end, frequency):
         try:
             st = read(a_f)
         except TypeError:
-            print(f'TypeError while oc.read file {a_f}; Skipping phase.')
+            print(f'TypeError while obspy.read file {a_f}; Skipping phase.')
             return None
 
         # TODO: Continuity check
