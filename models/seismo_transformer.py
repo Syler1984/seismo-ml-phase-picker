@@ -14,7 +14,7 @@ from tensorflow import keras
 from tensorflow.keras import layers
 from einops.layers.tensorflow import Rearrange
 
-from fast_attention import fast_attention
+from .fast_attention import fast_attention
 
 from kapre import STFT, Magnitude, MagnitudeToDecibel
 
