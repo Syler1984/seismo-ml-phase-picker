@@ -47,3 +47,30 @@ def default_path(path):
         path = path[0:-1]
 
     return path
+
+
+def date_str(year, month, day, hour=0, minute=0, second=0., microsecond=None):
+    """
+    Creates an ISO 8601 string.
+    """
+    # Get microsecond if not provided
+    if microsecond is None:
+        if type(second) is float:
+            microsecond = int((second - int(second)) * 1000000)
+        else:
+            microsecond = 0
+
+    # Convert types
+    year = int(year)
+    month = int(month)
+    day = int(day)
+    hour = int(hour)
+    minute = int(minute)
+    second = int(second)
+    microsecond = int(microsecond)
+
+    # ISO 8601 template
+    tmp = '{year}-{month:0>2d}-{day:0>2d}T{hour:0>2d}:{minute:0>2d}:{second}.{microsecond}'
+
+    return tmp.format(year = year, month = month, day = day,
+                      hour = hour, minute = minute, second = second, microsecond = microsecond)
