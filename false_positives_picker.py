@@ -8,61 +8,79 @@ from utils.seisan_tools import process_seisan_def, process_stations_file
 
 # Default params
 day_length = 60. * 60 * 24
-params = {'config': 'config.ini',
-          'start': None,
-          'end': None,
-          'slice_range': 2.,  # seconds before and after event
-          'archive_path': None,
-          's_path': None,
-          'seisan_def': None,
-          'stations': None,
-          'allowed_channels': [
-              ['SHN', 'SHE', 'SHZ'],
-              ['BHN', 'BHE', 'BHZ'],
-          ],
-          'frequency': 100.,
-          'out': 'wave_picks',
-          'debug': False,
-          'out_hdf5': 'data.hdf5'}
+
+params = {
+    'config': 'config.ini',
+    'start': None,
+    'end': None,
+    'slice_range': 2.,  # seconds before and after event
+    'archive_path': None,
+    's_path': None,
+    'seisan_def': None,
+    'stations': None,
+    'allowed_channels': [
+        ['SHN', 'SHE', 'SHZ'],
+        ['BHN', 'BHE', 'BHZ'],
+    ],
+    'frequency': 100.,
+    'out': 'wave_picks',
+    'debug': False,
+    'seismo': False,
+    'favor': False,
+    'cnn': False,
+    'out_hdf5': 'data.hdf5'
+}
 
 # Only this params can be set via script arguments
-param_aliases = {'config': ['--config', '-c'],
-                 'start': ['--start', '-s'],
-                 'end': ['--end', '-e'],
-                 'slice_range': ['--slice_range', '--range'],
-                 'archive_path': ['--archive_path', '-a'],
-                 's_path': ['--s_path'],
-                 'seisan_def': ['--seisan_def'],
-                 'stations': ['--stations'],
-                 'out': ['--out', '-o'],
-                 'debug': ['--debug', '-d']}
+param_aliases = {
+    'config': ['--config', '-c'],
+    'start': ['--start', '-s'],
+    'end': ['--end', '-e'],
+    'slice_range': ['--slice_range', '--range'],
+    'archive_path': ['--archive_path', '-a'],
+    's_path': ['--s_path'],
+    'seisan_def': ['--seisan_def'],
+    'stations': ['--stations'],
+    'out': ['--out', '-o'],
+    'debug': ['--debug', '-d'],
+    'seismo': ['--seismo', '-d'],
+    'favor': ['--favor', '-d'],
+    'cnn': ['--cnn', '-d']
+}
 
 # Help messages
-param_help = {'config': 'Path to .ini config file',
-              'start': 'start date in ISO 8601 format:\n'
-                       '{year}-{month}-{day}T{hour}:{minute}:{second}.{microsecond}\n'
-                       'or\n'
-                       '{year}-{month}-{day}T{hour}:{minute}:{second}\n'
-                       'or\n'
-                       '{year}-{month}-{day}\n'
-                       'default: beginning of this month',
-              'end': 'end date in ISO 8601 format:\n'
-                     '{year}-{month}-{day}T{hour}:{minute}:{second}.{microsecond}\n'
-                     'or\n'
-                     '{year}-{month}-{day}T{hour}:{minute}:{second}\n'
-                     'or\n'
-                     '{year}-{month}-{day}\n'
-                     'default: now',
-              'slice_range': 'Slicing range in seconds before and after wave arrival',
-              'archive_path': 'Path to Seisan archive directory',
-              's_path': 'Path to s-files database directory (e.g. "/seismo/seisan/REA/IMGG_/")',
-              'seisan_def': 'Path to SEISAN.DEF',
-              'stations': 'Path to stations file',
-              'out': 'Output path, default: "wave_picks"',
-              'debug': 'Enable debug info output? 1 - enable, default: 0'}
+param_help = {
+    'config': 'Path to .ini config file',
+    'start': 'start date in ISO 8601 format:\n'
+             '{year}-{month}-{day}T{hour}:{minute}:{second}.{microsecond}\n'
+             'or\n'
+             '{year}-{month}-{day}T{hour}:{minute}:{second}\n'
+             'or\n'
+             '{year}-{month}-{day}\n'
+             'default: beginning of this month',
+    'end': 'end date in ISO 8601 format:\n'
+           '{year}-{month}-{day}T{hour}:{minute}:{second}.{microsecond}\n'
+           'or\n'
+           '{year}-{month}-{day}T{hour}:{minute}:{second}\n'
+           'or\n'
+           '{year}-{month}-{day}\n'
+           'default: now',
+    'slice_range': 'Slicing range in seconds before and after wave arrival',
+    'archive_path': 'Path to Seisan archive directory',
+    's_path': 'Path to s-files database directory (e.g. "/seismo/seisan/REA/IMGG_/")',
+    'seisan_def': 'Path to SEISAN.DEF',
+    'stations': 'Path to stations file',
+    'out': 'Output path, default: "wave_picks"',
+    'debug': 'Enable debug info output? 1 - enable, default: 0'
+}
 
 # Param actions
-param_actions = {'debug': 'store_true'}
+param_actions = {
+    'debug': 'store_true',
+    'seismo': 'store_true',
+    'favor': 'store_true',
+    'cnn': 'store_true'
+}
 
 
 if __name__ == '__main__':
@@ -134,3 +152,16 @@ if __name__ == '__main__':
 
     if params['out'][-1] != '/':
         params['out'] += '/'
+
+    # Loading model
+    from models import seismo_load
+
+    if params['seismo']:
+        print('Loading default Seismo-Transformer')
+    elif params['favor']:
+        print('Loading fast-attention Seismo-Transformer')
+    elif params['cnn']:
+        print('Loading fast-attention Seismo-Transformer with CNN')
+    else:
+        print('No model specified, aborting!')
+        sys.exit(1)
