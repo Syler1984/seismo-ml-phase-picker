@@ -44,7 +44,9 @@ params = {
     'p_event_before': 10.,
     'p_event_after': 60. * 60 * 1,
     's_event_before': 60. * 10,
-    's_event_after': 60. * 10
+    's_event_after': 60. * 10,
+    'default_event_before': 60. * 60 * 1,
+    'default_event_after': 60. * 60 * 1
 }
 
 # Only this params can be set via script arguments
@@ -231,6 +233,7 @@ if __name__ == '__main__':
 
     current_month = -1
     s_events = []
+    true_positives = []
 
     while current_dt < end_date:
 
@@ -244,31 +247,46 @@ if __name__ == '__main__':
             current_month = current_dt.month
             s_events = parse_s_dir(s_base_path, stations, params)
 
+            # Add time_span for every event
+            true_positives = []
+            for event_file in s_events:
+                for event_group in event_file:
+                    for event in event_group:
+
+                        event_time = event['utc_datetime']
+
+                        if not event_time:
+                            continue
+
+                        if event['phase'] == 'P':
+                            event['time_span'] = (event_time - params['p_event_before'],
+                                                  event_time + params['p_event_after'])
+                        elif event['phase'] == 'S':
+                            event['time_span'] = (event_time - params['s_event_before'],
+                                                  event_time + params['s_event_after'])
+                        else:
+                            event['time_span'] = (event_time - params['default_event_before'],
+                                                  event_time + params['default_event_after'])
+
+                        true_positives.append(event['time_span'])
+
         if not s_events:
             s_events = []
+        if not true_positives:
+            true_positives = []
 
-        # Go through every event and parse everything what happened today
-        true_positives = []
-        for event_file in s_events:
-            for event_group in event_file:
-                for event in event_group:
+        # Filter out todays true_positives
+        current_true_positives = []
+        for span_start, span_end in true_positives:
 
-                    base_path = f'{params["archive_path"]}{event["code"]}/{event["station"]}/'
+            is_in = False
+            if current_dt <= span_start and span_end <= current_end_dt:
+                is_in = True
+            elif span_start < current_dt < span_end:
+                is_in = True
+            elif span_start < current_end_dt < span_end:
+                is_in = True
 
-                    # Get relevant channels
-                    ch_tag = f'{event["instrument"]}{event["algorithm"]}'
-                    channels = None
-                    for ch_group in params['allowed_channels']:
-
-                        if ch_tag == ch_group[0][:2]:
-                            channels = ch_group
-                            break
-
-                    if not channels:
-                        if params['debug']:
-                            print(f'DEBUG: Skipping event: {event["s_path"]} - channels not allowed!')
-                        continue
-
-                    event_time = event['utc_datetime']
-
-                    print('Event: ', event)
+        print('CURRENT TRUE POSITIVES:')
+        print(current_true_positives)
+        print('-' * 40)
