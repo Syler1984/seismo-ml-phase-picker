@@ -287,6 +287,9 @@ if __name__ == '__main__':
             elif span_start < current_end_dt < span_end:
                 is_in = True
 
+            if is_in:
+                current_true_positives.append((span_start, span_end))
+
         print('CURRENT TRUE POSITIVES:')
         print(current_true_positives)
         print('-' * 40)
