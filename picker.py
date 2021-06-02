@@ -2,8 +2,8 @@ import argparse
 import os
 import sys
 from obspy.core.utcdatetime import UTCDateTime
-import h5py as h5
 import numpy as np
+
 from utils.ini_tools import parse_ini
 from utils.seisan_tools import process_seisan_def, process_stations_file, parse_s_dir, slice_archives
 from utils.converter import date_str
@@ -178,8 +178,6 @@ if __name__ == '__main__':
 
     if not stations:
         stations = process_seisan_def(params['seisan_def'], params['allowed_channels'])
-
-    # stations: GROUPS of ['VAL', 'SHZ', 'IM', '00', '20141114', '20170530']
 
     # Initialize output directory
     if not os.path.isdir(params['out']):
