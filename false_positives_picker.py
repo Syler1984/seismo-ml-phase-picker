@@ -2,12 +2,13 @@ import argparse
 import sys
 from obspy.core.utcdatetime import UTCDateTime
 
+from utils.ini_tools import parse_ini
+from utils.seisan_tools import process_seisan_def, process_stations_file
+
 # Silence tensorflow warnings
 import os
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 
-from utils.ini_tools import parse_ini
-from utils.seisan_tools import process_seisan_def, process_stations_file
 
 # Default params
 default_model_weights = {
