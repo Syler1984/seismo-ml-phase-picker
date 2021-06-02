@@ -3,7 +3,8 @@ import sys
 from obspy.core.utcdatetime import UTCDateTime
 
 from utils.ini_tools import parse_ini
-from utils.seisan_tools import process_seisan_def, process_stations_file
+from utils.seisan_tools import process_seisan_def, process_stations_file, parse_s_dir
+from utils.converter import date_str
 
 # Silence tensorflow warnings
 import os
@@ -39,7 +40,11 @@ params = {
     'favor': False,
     'cnn': False,
     'weights': None,
-    'out_hdf5': 'data.hdf5'
+    'out_hdf5': 'data.hdf5',
+    'p_event_before': 10.,
+    'p_event_after': 60. * 60 * 1,
+    's_event_before': 60. * 10,
+    's_event_after': 60. * 10
 }
 
 # Only this params can be set via script arguments
@@ -157,6 +162,14 @@ if __name__ == '__main__':
     if not stations:
         stations = process_seisan_def(params['seisan_def'], params['allowed_channels'])
 
+    # Fix archive_path
+    if params['archive_path'][-1] != '/':
+        params['archive_path'] += '/'
+
+    # Fix s-files dir path
+    if params['s_path'][-1] != '/':
+        params['s_path'] += '/'
+
     # Initialize output directory
     if not os.path.isdir(params['out']):
 
@@ -205,4 +218,57 @@ if __name__ == '__main__':
     else:
         raise AttributeError('No model specified!')
 
-    model.summary()
+    # Prepare for archive files gathering
+    current_dt = start_date
+
+    current_end_dt = UTCDateTime(date_str(current_dt.year, current_dt.month, current_dt.day, 23, 59, 59))
+    if end_date.year == current_dt.year and end_date.julday == current_dt.julday:
+        current_end_dt = end_date
+
+    if params['debug']:
+        print(f'DEBUG: start = {start_date}',
+              f'DEBUG: end = {end_date}', sep='\n')
+
+    current_month = -1
+    s_events = []
+
+    while current_dt < end_date:
+
+        if params['debug']:
+            print(f'DEBUG: current_date = {current_dt} current_end_date: {current_end_dt}')
+
+        # Parse all s_files once per month
+        if current_dt.month != current_month:
+            s_base_path = params['s_path']
+            s_base_path += f'{current_dt.year:0>4d}/{current_dt.month:0>2d}/'
+            current_month = current_dt.month
+            s_events = parse_s_dir(s_base_path, stations, params)
+
+        if not s_events:
+            s_events = []
+
+        # Go through every event and parse everything what happened today
+        true_positives = []
+        for event_file in s_events:
+            for event_group in event_file:
+                for event in event_group:
+
+                    base_path = f'{params["archive_path"]}{event["code"]}/{event["station"]}/'
+
+                    # Get relevant channels
+                    ch_tag = f'{event["instrument"]}{event["algorithm"]}'
+                    channels = None
+                    for ch_group in params['allowed_channels']:
+
+                        if ch_tag == ch_group[0][:2]:
+                            channels = ch_group
+                            break
+
+                    if not channels:
+                        if params['debug']:
+                            print(f'DEBUG: Skipping event: {event["s_path"]} - channels not allowed!')
+                        continue
+
+                    event_time = event['utc_datetime']
+
+                    print('Event: ', event)
