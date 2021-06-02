@@ -174,7 +174,7 @@ if __name__ == '__main__':
         if not params['weights'] and not default_model_weights['seismo']:
             raise AttributeError('No model weights provided!')
 
-        model = seismo_load.load_cnn(params['weights'])
+        model = seismo_load.load_transformer(params['weights'])
     elif params['favor']:
         print('Loading fast-attention Seismo-Transformer')
         # Check model weights
