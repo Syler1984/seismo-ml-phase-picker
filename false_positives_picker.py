@@ -7,6 +7,12 @@ from utils.ini_tools import parse_ini
 from utils.seisan_tools import process_seisan_def, process_stations_file
 
 # Default params
+default_model_weights = {
+    'seismo': 'weights/seismo_sakh_2014_2019.h5',
+    'favor': None,
+    'cnn': None
+}
+
 day_length = 60. * 60 * 24
 
 params = {
@@ -28,6 +34,7 @@ params = {
     'seismo': False,
     'favor': False,
     'cnn': False,
+    'weights': None,
     'out_hdf5': 'data.hdf5'
 }
 
@@ -45,7 +52,8 @@ param_aliases = {
     'debug': ['--debug', '-d'],
     'seismo': ['--seismo'],
     'favor': ['--favor'],
-    'cnn': ['--cnn']
+    'cnn': ['--cnn'],
+    'weights': ['--weights', '-w']
 }
 
 # Help messages
@@ -74,7 +82,8 @@ param_help = {
     'debug': 'Enable debug info output',
     'seismo': 'Load default Seismo-Transformer',
     'favor': 'Load fast-attention Seismo-Transformer',
-    'cnn': 'Load fast-attention Seismo-Transformer with CNN'
+    'cnn': 'Load fast-attention Seismo-Transformer with CNN',
+    'weights': 'Path to model weights file'
 }
 
 # Param actions
@@ -161,10 +170,26 @@ if __name__ == '__main__':
 
     if params['seismo']:
         print('Loading default Seismo-Transformer')
+        # Check model weights
+        if not params['weights'] and not default_model_weights['seismo']:
+            raise AttributeError('No model weights provided!')
+
+        model = seismo_load.load_cnn(params['weights'])
     elif params['favor']:
         print('Loading fast-attention Seismo-Transformer')
+        # Check model weights
+        if not params['weights'] and not default_model_weights['seismo']:
+            raise AttributeError('No model weights provided!')
+
+        model = seismo_load.load_favor(params['weights'])
     elif params['cnn']:
         print('Loading fast-attention Seismo-Transformer with CNN')
+        # Check model weights
+        if not params['weights'] and not default_model_weights['seismo']:
+            raise AttributeError('No model weights provided!')
+
+        model = seismo_load.load_cnn(params['weights'])
     else:
-        print('No model specified, aborting!')
-        sys.exit(1)
+        raise AttributeError('No model specified!')
+
+    model.summary()
