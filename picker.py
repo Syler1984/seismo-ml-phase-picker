@@ -240,11 +240,11 @@ if __name__ == '__main__':
 
                     # Get path to archive:
                     # archives_path/code/station/station.code.location.channel.year.julday
-                    # where channel = instrument + algorythm + actuall channel (last letter in allowed_channels)
+                    # where channel = instrument + algorithm + actuall channel (last letter in allowed_channels)
                     base_path = f'{params["archive_path"]}{event["code"]}/{event["station"]}/'
 
                     # Get relevant channels
-                    ch_tag = f'{event["instrument"]}{event["algorythm"]}'
+                    ch_tag = f'{event["instrument"]}{event["algorithm"]}'
                     channels = None
                     for ch_group in params['allowed_channels']:
 
