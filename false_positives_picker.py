@@ -178,7 +178,7 @@ if __name__ == '__main__':
             if not default_model_weights['seismo']:
                 raise AttributeError('No model weights provided!')
             else:
-                params['weight'] = default_model_weights['seismo']
+                params['weights'] = default_model_weights['seismo']
 
         model = seismo_load.load_transformer(params['weights'])
     elif params['favor']:
@@ -188,7 +188,7 @@ if __name__ == '__main__':
             if not default_model_weights['favor']:
                 raise AttributeError('No model weights provided!')
             else:
-                params['weight'] = default_model_weights['favor']
+                params['weights'] = default_model_weights['favor']
 
         model = seismo_load.load_favor(params['weights'])
     elif params['cnn']:
@@ -198,7 +198,7 @@ if __name__ == '__main__':
             if not default_model_weights['cnn']:
                 raise AttributeError('No model weights provided!')
             else:
-                params['weight'] = default_model_weights['cnn']
+                params['weights'] = default_model_weights['cnn']
 
         model = seismo_load.load_cnn(params['weights'])
     else:
