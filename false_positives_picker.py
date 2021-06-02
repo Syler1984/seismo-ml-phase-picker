@@ -275,7 +275,7 @@ if __name__ == '__main__':
         if not true_positives:
             true_positives = []
 
-        # Filter out todays true_positives
+        # Filter out today's true_positives
         current_true_positives = []
         for span_start, span_end in true_positives:
 
