@@ -1,15 +1,5 @@
-import os
-import sys
-import logging
-import random
-
 from obspy.core import read
-from obspy.signal.trigger import recursive_sta_lta, trigger_onset
-import getopt
 
-import utils.picks_slicing as picks
-import utils.seisan_reader as seisan
-import utils.converter as converter
 import config.vars as config
 
 # Main function body

@@ -1,10 +1,4 @@
-import os
-import sys
-import obspy.io.nordic.core as nordic_reader
-from obspy.core import read
-from obspy.core import utcdatetime
 import logging
-import utils.converter as converter
 
 import utils.converter as converter
 import utils.utils as utils
