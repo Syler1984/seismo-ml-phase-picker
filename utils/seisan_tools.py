@@ -104,6 +104,97 @@ def process_seisan_def(path, allowed_channels):
     return grouped_records
 
 
+def group_by(lst, column, comp_margin = None):
+    """
+    Groups list entities by column values.
+    """
+    sorted_values = []
+    result_list = []
+    current_value = None
+
+    for i in range(0, len(lst)):
+        x = lst[i]
+        if x[column][0:comp_margin] in sorted_values or x[column][0:comp_margin] == current_value:
+            continue
+
+        current_value = x[column][0:comp_margin]
+        current_list = []
+        for j in range(i, len(lst)):
+            y = lst[j]
+            if y[column][0:comp_margin] != current_value:
+                continue
+
+            current_list.append(y)
+
+        sorted_values.append(current_value)
+        result_list.append(current_list)
+
+    return result_list
+
+
+def process_archives_list(lst):
+    """
+    Processes output of parse_seisan_def: combines into lists of three channeled entries.
+    """
+    lst = group_by(lst, 0)
+    result = []
+    for x in lst:
+        channel_group = group_by(x, 1, 2)
+        for y in channel_group:
+            location_group = group_by(y, 3)
+
+            for z in location_group:
+                if len(z) == 3:
+                    result.append(z)
+    return result
+
+
+def process_seisan_def_mulplt(path, mulplt_data = None, allowed_channels = None):
+    """
+    Parses seisan.def file and returns grouped lists like:
+    [station, channel, network_code, location_code, archive start date, archive end date (or None)].
+    """
+    data = []
+
+    if mulplt_data is not None:
+        stations_channels = [x[0] + x[1] + x[2] for x in mulplt_data]
+
+    with open(path, "r") as f:
+        lines = f.readlines()
+        tag = "ARC_CHAN"
+
+        for line in lines:
+            if line[:len(tag)] == tag:
+                entry = line[len(tag):].split()
+                station = line[40:45].strip()
+                channel = line[45:48]
+                code = line[48:50]
+                location = line[50:52]
+                start_date = entry[2] if len(entry) >= 3 else None
+                end_date = entry[3] if len(entry) >= 4 else None
+
+                if mulplt_data is not None:
+                    if station + channel not in stations_channels:
+                        continue
+
+                parsed_line = [station, channel, code, location, start_date, end_date]
+
+                if allowed_channels:
+
+                    is_channel_allowed = False
+                    for ch in allowed_channels:
+                        if ch == channel[:len(ch)]:
+                            is_channel_allowed = True
+
+                    if is_channel_allowed:
+                        data.append(parsed_line)
+
+                else:
+                    data.append(parsed_line)
+
+    return process_archives_list(data)
+
+
 def parse_s_file(path, params):
     """
     Parses s-file and returns all its events readings.
@@ -457,7 +548,7 @@ def slice_archives(archives, start, end, frequency):
 
 def parse_mulplt(path):
     """
-    Parses multplt.def file and returns list of lists like: [station, channel type (e.g. SH), channel (E, N or Z)].
+    Parses MULPLT.DEF file and returns list of lists like: [station, channel type (e.g. SH), channel (E, N or Z)].
     """
     data = []
     with open(path, "r") as f:
