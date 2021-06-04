@@ -453,3 +453,20 @@ def slice_archives(archives, start, end, frequency):
         return None
 
     return traces
+
+
+def parse_mulplt(path):
+    """
+    Parses multplt.def file and returns list of lists like: [station, channel type (e.g. SH), channel (E, N or Z)].
+    """
+    data = []
+    with open(path, "r") as f:
+        lines = f.readlines()
+        tag = "#DEFAULT CHANNEL"
+
+        for line in lines:
+            if line[:len(tag)] == tag:
+                # entry[0] - station, ..[1] - type, ..[2] - channel
+                entry = line[len(tag):].split()
+                data.append(entry)
+    return data

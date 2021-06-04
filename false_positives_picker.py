@@ -3,7 +3,7 @@ import sys
 from obspy.core.utcdatetime import UTCDateTime
 
 from utils.ini_tools import parse_ini
-from utils.seisan_tools import process_seisan_def, process_stations_file, parse_s_dir
+from utils.seisan_tools import process_seisan_def, process_stations_file, parse_s_dir, parse_mulplt
 from utils.converter import date_str
 
 # Silence tensorflow warnings
@@ -22,6 +22,7 @@ day_length = 60. * 60 * 24
 
 params = {
     'config': 'config.ini',
+    'mulplt': '/seismo/seisan/DAT/MULPLT.DEF',
     'start': None,
     'end': None,
     'slice_range': 2.,  # seconds before and after event
@@ -52,6 +53,7 @@ params = {
 # Only this params can be set via script arguments
 param_aliases = {
     'config': ['--config', '-c'],
+    'mulplt': ['--mulplt'],
     'start': ['--start', '-s'],
     'end': ['--end', '-e'],
     'slice_range': ['--slice_range', '--range'],
@@ -70,6 +72,7 @@ param_aliases = {
 # Help messages
 param_help = {
     'config': 'Path to .ini config file',
+    'mulplt': 'Path to MULPLT.DEF file',
     'start': 'start date in ISO 8601 format:\n'
              '{year}-{month}-{day}T{hour}:{minute}:{second}.{microsecond}\n'
              'or\n'
@@ -163,6 +166,17 @@ if __name__ == '__main__':
 
     if not stations:
         stations = process_seisan_def(params['seisan_def'], params['allowed_channels'])
+
+    # Parse MULPLT.DEF
+    mulplt_parsed = parse_mulplt(params['mulplt_path'])
+
+    print('STATIONS:')
+    print(stations)
+    print('MULPLT:')
+    print(mulplt_parsed)
+
+    import sys
+    sys.exit(0)
 
     # Fix archive_path
     if params['archive_path'][-1] != '/':
@@ -290,9 +304,13 @@ if __name__ == '__main__':
             if is_in:
                 current_true_positives.append((span_start, span_end))
 
-        print('CURRENT TRUE POSITIVES:')
-        print(current_true_positives)
-        print('-' * 40)
+        # Predict
+        # TODO: Gather archives path groups, e.g. [ [archive_N, archive_E, archive_Z], ... ]
+        # TODO: Read archives from MULPLT.DEF, just look up model-integration code and use the same MULPLT file
+        # TODO: After this get archive pathes, again, take code from model-integration
+        # TODO: Then read archives, trim archives
+        # TODO: Write function which takes time span and arrays of current_true_positives time spans and returns
+        #           array of timespans to which i should cut the base timespan.
 
         # Shift date
         current_dt += 24 * 60 * 60
@@ -301,3 +319,4 @@ if __name__ == '__main__':
 
         if end_date.year == current_dt.year and end_date.julday == current_dt.julday:
             current_end_dt = end_date
+
