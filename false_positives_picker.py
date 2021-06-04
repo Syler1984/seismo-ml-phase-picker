@@ -3,7 +3,7 @@ import sys
 from obspy.core.utcdatetime import UTCDateTime
 
 from utils.ini_tools import parse_ini
-from utils.seisan_tools import process_seisan_def, process_stations_file, parse_s_dir, parse_mulplt
+from utils.seisan_tools import process_seisan_def_mulplt, process_stations_file, parse_s_dir, parse_mulplt
 from utils.converter import date_str
 
 # Silence tensorflow warnings
@@ -30,10 +30,6 @@ params = {
     's_path': None,
     'seisan': None,
     'stations': None,
-    'allowed_channels': [
-        ['SHN', 'SHE', 'SHZ'],
-        ['BHN', 'BHE', 'BHZ'],
-    ],
     'frequency': 100.,
     'out': 'wave_picks',
     'debug': False,
@@ -159,21 +155,20 @@ if __name__ == '__main__':
     if start_date is None:
         start_date = UTCDateTime() - 30 * 24 * 60 * 60
 
+    # Parse MULPLT.DEF
+    mulplt_parsed = parse_mulplt(params['mulplt'])
+
     # Parse stations
     stations = None
     if params['stations']:
         stations = process_stations_file(params['stations'])
 
     if not stations:
-        stations = process_seisan_def(params['seisan'], params['allowed_channels'])
-
-    # Parse MULPLT.DEF
-    mulplt_parsed = parse_mulplt(params['mulplt'])
+        stations = process_seisan_def_mulplt(params['seisan'], mulplt_parsed)
 
     print('STATIONS:')
-    print(stations)
-    print('MULPLT:')
-    print(mulplt_parsed)
+    for s in stations:
+        print(s)
 
     import sys
     sys.exit(0)
