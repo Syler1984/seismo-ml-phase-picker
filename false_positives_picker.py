@@ -22,13 +22,13 @@ day_length = 60. * 60 * 24
 
 params = {
     'config': 'config.ini',
-    'mulplt': '/seismo/seisan/DAT/MULPLT.DEF',
+    'mulplt': None,
     'start': None,
     'end': None,
     'slice_range': 2.,  # seconds before and after event
     'archive_path': None,
     's_path': None,
-    'seisan_def': None,
+    'seisan': None,
     'stations': None,
     'allowed_channels': [
         ['SHN', 'SHE', 'SHZ'],
@@ -59,7 +59,7 @@ param_aliases = {
     'slice_range': ['--slice_range', '--range'],
     'archive_path': ['--archive_path', '-a'],
     's_path': ['--s_path'],
-    'seisan_def': ['--seisan_def'],
+    'seisan': ['--seisan'],
     'stations': ['--stations'],
     'out': ['--out', '-o'],
     'debug': ['--debug', '-d'],
@@ -90,7 +90,7 @@ param_help = {
     'slice_range': 'Slicing range in seconds before and after wave arrival',
     'archive_path': 'Path to Seisan archive directory',
     's_path': 'Path to s-files database directory (e.g. "/seismo/seisan/REA/IMGG_/")',
-    'seisan_def': 'Path to SEISAN.DEF',
+    'seisan': 'Path to SEISAN.DEF',
     'stations': 'Path to stations file',
     'out': 'Output path, default: "wave_picks"',
     'debug': 'Enable debug info output',
@@ -165,10 +165,10 @@ if __name__ == '__main__':
         stations = process_stations_file(params['stations'])
 
     if not stations:
-        stations = process_seisan_def(params['seisan_def'], params['allowed_channels'])
+        stations = process_seisan_def(params['seisan'], params['allowed_channels'])
 
     # Parse MULPLT.DEF
-    mulplt_parsed = parse_mulplt(params['mulplt_path'])
+    mulplt_parsed = parse_mulplt(params['mulplt'])
 
     print('STATIONS:')
     print(stations)
