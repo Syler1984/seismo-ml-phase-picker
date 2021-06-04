@@ -3,7 +3,7 @@ import sys
 from obspy.core.utcdatetime import UTCDateTime
 
 from utils.ini_tools import parse_ini
-from utils.seisan_tools import process_seisan_def_mulplt, process_stations_file, parse_s_dir, parse_mulplt
+from utils.seisan_tools import process_seisan_def_mulplt, parse_s_dir, parse_mulplt, order_stations
 from utils.converter import date_str
 
 # Silence tensorflow warnings
@@ -22,6 +22,7 @@ day_length = 60. * 60 * 24
 
 params = {
     'config': 'config.ini',
+    'channel_order': ['N', 'E', 'Z'],
     'mulplt': None,
     'start': None,
     'end': None,
@@ -29,7 +30,6 @@ params = {
     'archive_path': None,
     's_path': None,
     'seisan': None,
-    'stations': None,
     'frequency': 100.,
     'out': 'wave_picks',
     'debug': False,
@@ -56,7 +56,6 @@ param_aliases = {
     'archive_path': ['--archive_path', '-a'],
     's_path': ['--s_path'],
     'seisan': ['--seisan'],
-    'stations': ['--stations'],
     'out': ['--out', '-o'],
     'debug': ['--debug', '-d'],
     'seismo': ['--seismo'],
@@ -87,7 +86,6 @@ param_help = {
     'archive_path': 'Path to Seisan archive directory',
     's_path': 'Path to s-files database directory (e.g. "/seismo/seisan/REA/IMGG_/")',
     'seisan': 'Path to SEISAN.DEF',
-    'stations': 'Path to stations file',
     'out': 'Output path, default: "wave_picks"',
     'debug': 'Enable debug info output',
     'seismo': 'Load default Seismo-Transformer',
@@ -159,12 +157,8 @@ if __name__ == '__main__':
     mulplt_parsed = parse_mulplt(params['mulplt'])
 
     # Parse stations
-    stations = None
-    if params['stations']:
-        stations = process_stations_file(params['stations'])
-
-    if not stations:
-        stations = process_seisan_def_mulplt(params['seisan'], mulplt_parsed)
+    stations = process_seisan_def_mulplt(params['seisan'], mulplt_parsed)
+    stations = order_stations(stations, params['channel_order'])
 
     print('STATIONS:')
     for s in stations:

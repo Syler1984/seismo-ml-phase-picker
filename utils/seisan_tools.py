@@ -561,3 +561,21 @@ def parse_mulplt(path):
                 entry = line[len(tag):].split()
                 data.append(entry)
     return data
+
+
+def order_stations(stations, order):
+
+    ordered_list = []
+    for station_group in stations:
+
+        ordered_group = []
+        for channel in order:
+            for station in station_group:
+
+                if station[1][-1] == channel:
+                    ordered_group.append(station)
+
+        if len(ordered_group) == len(order):
+            ordered_list.append(ordered_group)
+
+    return ordered_list
