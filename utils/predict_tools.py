@@ -1,3 +1,31 @@
+def cut_spans_to_slices(cut_spans, start_time, end_time):
+
+    slice_spans = [[start_time, end_time]]
+
+    for cut_span in cut_spans:
+
+        i = 0
+        while i < len(slice_spans):
+
+            slice_span = slice_spans[i]
+            if cut_span[0] < slice_span[0] and slice_span[1] < cut_span[1]:
+                slice_spans.pop(i)
+                continue
+            elif cut_span[0] < slice_span[0] < cut_span[1]:
+                slice_span[0] = cut_span[1]
+            elif cut_span[0] < slice_span[1] < cut_span[1]:
+                slice_span[1] = cut_span[0]
+            elif slice_span[0] < cut_span[0] and cut_span[1] < slice_span[1]:
+                new_span = [slice_span[0], cut_span[0]]
+                slice_span[0] = cut_span[1]
+                slice_spans.insert(i, new_span)
+                i += 1
+
+            i += 1
+
+    return slice_spans
+
+
 def preprocess_streams(streams, start_datetime, end_datetime, cut_spans):
     """
     Preprocess streams: filter, detrend, interpolate, trim, cut
@@ -32,6 +60,19 @@ def preprocess_streams(streams, start_datetime, end_datetime, cut_spans):
     streams = cut_streams
     del cut_streams
 
+    slices = cut_spans_to_slices(cut_spans, max_start_time, min_end_time)
+
+    print('-' * 35)
+    print('start: ', max_start_time)
+    print('end: ', min_end_time)
+    print('cut_spans:')
+    for span in cut_spans:
+        print(span)
+    print('\t\t***' * 5)
+    print('slice_spans:')
+    for span in slices:
+        print(span)
+    print('-' * 35)
     # TODO: write function which takes streams time span and cut_spans and return list of spans which
     #       should be passed to stream.slices. Basically, list of slice spans
 
