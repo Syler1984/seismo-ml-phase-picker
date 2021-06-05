@@ -1,10 +1,12 @@
 import argparse
 import sys
 from obspy.core.utcdatetime import UTCDateTime
+from obspy import read
 
 from utils.ini_tools import parse_ini
 from utils.seisan_tools import process_seisan_def_mulplt, parse_s_dir, parse_mulplt, order_stations, archive_to_path
 from utils.converter import date_str
+from utils.predict_tools import preprocess_streams
 
 # Silence tensorflow warnings
 import os
@@ -298,8 +300,26 @@ if __name__ == '__main__':
             archive_data = archive_to_path(archive_list, current_dt,
                                            params['archive_path'], params['channel_order'])
 
-            print('ARCHIVE DATA: ', archive_data)
-            print('')
+            # Check if streams path are valid
+            from os.path import isfile
+            valid = True
+            for channel in params['channel_order']:
+                if not isfile(archive_data[channel]):
+                    valid = False
+                    break
+
+            if not valid:
+                continue
+
+            # Read data
+            streams = {}
+            try:
+                for channel in params['channel_order']:
+                    streams[channel] = read(archive_data[channel])
+            except Exception:  # TODO: Replace with less general built-in exceptions
+                continue
+
+            streams = preprocess_streams(streams, current_dt, current_end_dt, true_positives)  # preprocess data
 
         # Shift date
         current_dt += 24 * 60 * 60
