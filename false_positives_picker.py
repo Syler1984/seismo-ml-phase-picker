@@ -296,7 +296,7 @@ if __name__ == '__main__':
 
             # Archives path and meta data
             archive_data = archive_to_path(archive_list, current_dt,
-                                           params['archives_path'], params['channel_order'])
+                                           params['archive_path'], params['channel_order'])
 
             print('ARCHIVE DATA: ', archive_data)
             print('')
