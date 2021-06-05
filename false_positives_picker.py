@@ -3,7 +3,7 @@ import sys
 from obspy.core.utcdatetime import UTCDateTime
 
 from utils.ini_tools import parse_ini
-from utils.seisan_tools import process_seisan_def_mulplt, parse_s_dir, parse_mulplt, order_stations
+from utils.seisan_tools import process_seisan_def_mulplt, parse_s_dir, parse_mulplt, order_stations, archive_to_path
 from utils.converter import date_str
 
 # Silence tensorflow warnings
@@ -160,13 +160,6 @@ if __name__ == '__main__':
     stations = process_seisan_def_mulplt(params['seisan'], mulplt_parsed)
     stations = order_stations(stations, params['channel_order'])
 
-    print('STATIONS:')
-    for s in stations:
-        print(s)
-
-    import sys
-    sys.exit(0)
-
     # Fix archive_path
     if params['archive_path'][-1] != '/':
         params['archive_path'] += '/'
@@ -294,12 +287,19 @@ if __name__ == '__main__':
                 current_true_positives.append((span_start, span_end))
 
         # Predict
-        # TODO: Gather archives path groups, e.g. [ [archive_N, archive_E, archive_Z], ... ]
-        # TODO: Read archives from MULPLT.DEF, just look up model-integration code and use the same MULPLT file
-        # TODO: After this get archive pathes, again, take code from model-integration
+        # TODO: Read archives for every group, var name: stations (code for archive path get from model integration)
         # TODO: Then read archives, trim archives
         # TODO: Write function which takes time span and arrays of current_true_positives time spans and returns
         #           array of timespans to which i should cut the base timespan.
+
+        for archive_list in stations:
+
+            # Archives path and meta data
+            archive_data = archive_to_path(archive_list, current_dt,
+                                           params['archives_path'], params['channel_order'])
+
+            print('ARCHIVE DATA: ', archive_data)
+            print('')
 
         # Shift date
         current_dt += 24 * 60 * 60

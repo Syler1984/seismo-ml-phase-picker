@@ -579,3 +579,57 @@ def order_stations(stations, order):
             ordered_list.append(ordered_group)
 
     return ordered_list
+
+
+def archive_to_path(arch, date, archives_path, allowed_channel_dims):
+    """
+    Converts archive entry (array of elements: [[station, channel, code, location, start_date, end_date],]
+    to dictionary of this format: {"N": "data/20160610AZTRO/20160610000000.AZ.TRO.HHN.mseed",}
+    Path example: /seismo/archive/IM/LNSK/LNSK.IM.00.EHE.2016.100
+                  <archive_dir>/<location>/<station>/<station>.<location>.<code>.<channel>.<year>.<julday>
+    """
+    # Get julian day and year
+    julday = date.julday
+    year = date.year
+
+    if julday // 10 == 0:
+        julday = '00' + f'{julday}'
+    elif julday // 100 == 0:
+        julday = '0' + f'{julday}'
+
+    d_result = {}
+
+    # Metadata
+    chans = {}
+    station = None
+    loc_code = None
+    net_code = None
+
+    for x in arch:
+        # Find channel type
+        ch_type = x[1][-1]
+
+        if ch_type not in allowed_channel_dims:
+            continue
+
+        chans[ch_type] = x[1]
+
+        # Get metadata
+        if not station:
+            station = x[0]
+        if not loc_code:
+            loc_code = x[3]
+        if not net_code:
+            net_code = x[2]
+
+        # Path to archive
+        path = archives_path + '{}/{}/{}.{}.{}.{}.{}.{}'.format(x[2], x[0], x[0], x[2], x[3], x[1], year, julday)
+
+        d_result[ch_type] = path
+
+    d_result['meta'] = {'channels': chans,
+                        'station': station,
+                        'location_code': loc_code,
+                        'network_code': net_code}
+
+    return d_result
