@@ -73,7 +73,8 @@ def preprocess_streams(streams, start_datetime, end_datetime, cut_spans):
     for span in slices:
         print(span)
     print('-' * 35)
-    # TODO: write function which takes streams time span and cut_spans and return list of spans which
-    #       should be passed to stream.slices. Basically, list of slice spans
+
+    # Sliced traces format example: [[trace_N, trace_E, trace_Z], [...], ...]
 
     # TODO: slice all the streams and return them as a list of dictionaries
+    return 1
