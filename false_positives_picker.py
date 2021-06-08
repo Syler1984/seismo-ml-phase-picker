@@ -4,14 +4,13 @@ from obspy.core.utcdatetime import UTCDateTime
 from obspy import read
 
 from utils.ini_tools import parse_ini
-from utils.seisan_tools import process_seisan_def_mulplt, parse_s_dir, parse_mulplt, order_stations, archive_to_path
+import utils.seisan_tools as st
+import utils.predict_tools as pt
 from utils.converter import date_str
-from utils.predict_tools import preprocess_streams
 
 # Silence tensorflow warnings
 import os
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
-
 
 # Default params
 default_model_weights = {
@@ -22,10 +21,12 @@ default_model_weights = {
 
 day_length = 60. * 60 * 24
 
+# TODO: Make sure every parameter is used!
 params = {
     'config': 'config.ini',
     'channel_order': ['N', 'E', 'Z'],
     'mulplt': None,
+    'batch_size': 500_000,
     'start': None,
     'end': None,
     'slice_range': 2.,  # seconds before and after event
@@ -52,6 +53,7 @@ params = {
 param_aliases = {
     'config': ['--config', '-c'],
     'mulplt': ['--mulplt'],
+    'batch_size': ['--batch-size'],
     'start': ['--start', '-s'],
     'end': ['--end', '-e'],
     'slice_range': ['--slice_range', '--range'],
@@ -70,6 +72,7 @@ param_aliases = {
 param_help = {
     'config': 'Path to .ini config file',
     'mulplt': 'Path to MULPLT.DEF file',
+    'batch_size': 'Batch size for sliding windows memory, default: 500 000 samples',
     'start': 'start date in ISO 8601 format:\n'
              '{year}-{month}-{day}T{hour}:{minute}:{second}.{microsecond}\n'
              'or\n'
@@ -156,11 +159,11 @@ if __name__ == '__main__':
         start_date = UTCDateTime() - 30 * 24 * 60 * 60
 
     # Parse MULPLT.DEF
-    mulplt_parsed = parse_mulplt(params['mulplt'])
+    mulplt_parsed = st.parse_mulplt(params['mulplt'])
 
     # Parse stations
-    stations = process_seisan_def_mulplt(params['seisan'], mulplt_parsed)
-    stations = order_stations(stations, params['channel_order'])
+    stations = st.process_seisan_def_mulplt(params['seisan'], mulplt_parsed)
+    stations = st.order_stations(stations, params['channel_order'])
 
     # Fix archive_path
     if params['archive_path'][-1] != '/':
@@ -243,7 +246,7 @@ if __name__ == '__main__':
             s_base_path = params['s_path']
             s_base_path += f'{current_dt.year:0>4d}/{current_dt.month:0>2d}/'
             current_month = current_dt.month
-            s_events = parse_s_dir(s_base_path, stations, params)
+            s_events = st.parse_s_dir(s_base_path, stations, params)
 
             # Add time_span for every event
             true_positives = []
@@ -297,7 +300,7 @@ if __name__ == '__main__':
         for archive_list in stations:
 
             # Archives path and meta data
-            archive_data = archive_to_path(archive_list, current_dt,
+            archive_data = st.archive_to_path(archive_list, current_dt,
                                            params['archive_path'], params['channel_order'])
 
             # Check if streams path are valid
@@ -319,7 +322,18 @@ if __name__ == '__main__':
             except Exception:  # TODO: Replace with less general built-in exceptions
                 continue
 
-            streams = preprocess_streams(streams, current_dt, current_end_dt, current_true_positives)  # preprocess data
+            streams = pt.preprocess_streams(streams, current_dt, current_end_dt, current_true_positives)  # preprocess data
+
+            for stream_group in streams:
+
+                group_scores = pt.predict_streams(model, streams, params['batch_size'])
+
+                # FOR EVERY STREAM GROUP:
+                # Check if stream traces number is equal
+                # Per every trace:
+                #   Count batches
+                #   Loop for every batch, maybe, do this in separate function:
+                #     Predict. Find peaks. Find positives. Save them into h5py.
 
         # Shift date
         current_dt += 24 * 60 * 60
