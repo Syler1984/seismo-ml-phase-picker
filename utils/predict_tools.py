@@ -67,11 +67,11 @@ def preprocess_streams(streams, start_datetime, end_datetime, cut_spans):
     print('end: ', min_end_time)
     print('cut_spans:')
     for span in cut_spans:
-        print(span)
+        print(span[0].strftime("[%d.%m.%Y %H:%M:%S.%f]") + '...' + span[1].strftime("[%d.%m.%Y %H:%M:%S.%f]"))
     print('\t\t***' * 5)
     print('slice_spans:')
     for span in slices:
-        print(span)
+        print(span[0].strftime("[%d.%m.%Y %H:%M:%S.%f]") + '...' + span[1].strftime("[%d.%m.%Y %H:%M:%S.%f]"))
     print('-' * 35)
 
     # Sliced traces format example: [[trace_N, trace_E, trace_Z], [...], ...]
