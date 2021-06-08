@@ -319,7 +319,7 @@ if __name__ == '__main__':
             except Exception:  # TODO: Replace with less general built-in exceptions
                 continue
 
-            streams = preprocess_streams(streams, current_dt, current_end_dt, true_positives)  # preprocess data
+            streams = preprocess_streams(streams, current_dt, current_end_dt, current_true_positives)  # preprocess data
 
         # Shift date
         current_dt += 24 * 60 * 60
