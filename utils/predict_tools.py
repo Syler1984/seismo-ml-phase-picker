@@ -86,21 +86,33 @@ def preprocess_streams(streams, start_datetime, end_datetime, cut_spans):
 
 def trim_traces(traces):
     """
-
+    Trim traces to the same length
     :param traces:
     :return:
     """
-    return traces
+    max_start_time = max([x.stats.starttime for x in traces])
+    min_end_time = min([x.stats.endtime for x in traces])
+
+    trimmed = [x.slice(max_start_time, min_end_time) for x in traces]
+
+    return trimmed
 
 
 def count_batches(traces, batch_size):
     """
-
+    Counts batches amount.
     :param traces:
     :param batch_size:
     :return:
     """
-    return 0, 0
+    trace_length = traces[0].data.shape[0]
+
+    batch_count = trace_length // batch_size
+    last_batch = trace_length % batch_size
+    if last_batch:
+        batch_count += 1
+
+    return batch_count, last_batch
 
 
 def sliding_window(data, length, shift):
@@ -158,8 +170,6 @@ def scan_batch(model, batch):
     scores = model.predict(windows, verbose = False, batch_size = 500)
 
     return scores
-
-
 
 
 def predict_streams(model, streams, batch_size = 500_000, frequency = 100.):
