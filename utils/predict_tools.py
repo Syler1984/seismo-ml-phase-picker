@@ -77,7 +77,7 @@ def preprocess_streams(streams, start_datetime, end_datetime, cut_spans):
 
         stream_group = {}
         for channel, stream in streams.items():
-            stream_group[channel] = stream.slice(span[0]. span[1])
+            stream_group[channel] = stream.slice(span[0], span[1])
 
         result_streams.append(stream_group)
 
