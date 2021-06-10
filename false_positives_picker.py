@@ -326,7 +326,7 @@ if __name__ == '__main__':
 
             for stream_group in streams:
 
-                group_scores = pt.predict_streams(model, streams, params['batch_size'])
+                group_scores = pt.predict_streams(model, stream_group, params['batch_size'])
 
                 # FOR EVERY STREAM GROUP:
                 # Check if stream traces number is equal
