@@ -1,4 +1,5 @@
 import numpy as np
+from scipy.signal import find_peaks
 
 
 def cut_spans_to_slices(cut_spans, start_time, end_time):
@@ -172,7 +173,53 @@ def scan_batch(model, batch):
     return scores
 
 
-def predict_streams(model, streams, batch_size = 500_000, frequency = 100.):
+def get_positives(scores, label, other_labels, threshold):
+    """
+
+    :param scores:
+    :param label:
+    :param other_labels:
+    :param threshold:
+    :return:
+    """
+    avg_window_half_size = 100
+    positives = []
+
+    x = scores[:, label]
+    peaks = find_peaks(x, distance = 10_000, height = [threshold, 1.])
+
+    for i in range(len(peaks[0])):
+
+        start_id = peaks[0][i] - avg_window_half_size
+        if start_id < 0:
+            start_id = 0
+
+        end_id = start_id + avg_window_half_size*2
+        if end_id > len(x):
+            end_id = len(x) - 1
+            start_id = end_id - avg_window_half_size*2
+
+        # Get mean values
+        peak_mean = x[start_id : end_id].mean()
+
+        means = []
+        for idx in other_labels:
+
+            means.append(scores[:, idx][start_id : end_id].mean())
+
+        is_max = True
+        for m in means:
+
+            if m > peak_mean:
+                is_max = False
+
+        if is_max:
+            positives.append([peaks[0][i], peaks[1]['peak_heights'][i]])
+
+    return positives
+
+
+def predict_streams(model, streams, frequency = 100., params = None):
     """
     Predicts streams and returns scores
     :param frequency:
@@ -193,16 +240,16 @@ def predict_streams(model, streams, batch_size = 500_000, frequency = 100.):
         # Grab current traces
         traces = [x[i] for _, x in streams.items()]
         traces = trim_traces(traces)
-        batch_count, last_batch = count_batches(traces, batch_size)
+        batch_count, last_batch = count_batches(traces, params['batch_size'])
 
         for b in range(batch_count):
 
             # Get batch data
-            c_batch_size = batch_size
+            c_batch_size = params['batch_size']
             if b == batch_count - 1 and last_batch:
                 c_batch_size = last_batch
 
-            start_sample = batch_size * b
+            start_sample = params['batch_size'] * b
             end_sample = start_sample + c_batch_size
             start_time = traces[0].stats.starttime
             slice_start = start_time + start_sample / frequency
@@ -213,10 +260,30 @@ def predict_streams(model, streams, batch_size = 500_000, frequency = 100.):
             # Predict
             scores = scan_batch(model, batch)
 
-            print('***\t\t' * 9)
-            print('SCORES TYPE: ', type(scores))
-            print('SCORES: ')
-            print(scores)
-            print('***\t\t' * 9)
+            # Find positives
+            predicted_labels = {}
+            for p_label_name, p_label in params['positive_labels'].items():
+
+                other_labels = []
+                for m_label_name, m_label in params['model_labels'].items():
+                    if m_label_name != p_label_name:
+                        other_labels.append(m_label)
+
+                positives = get_positives(scores,
+                                          p_label,
+                                          other_labels,
+                                          threshold = params['threshold'])
+
+                predicted_labels[p_label_name] = positives
+
+            print('***\t' * 14)
+            for key, value in predicted_labels.items():
+                print('KEY: ', key)
+                print('VALUE: ', value)
+            print('***\t' * 14)
+
+            # Extract additional info about positives, e.g. sample position, timestamp, channel data, P.
+
+            # Put them into the array
 
     return []

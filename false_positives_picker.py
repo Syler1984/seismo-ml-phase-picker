@@ -25,6 +25,7 @@ day_length = 60. * 60 * 24
 params = {
     'config': 'config.ini',
     'channel_order': ['N', 'E', 'Z'],
+    'threshold': 0.95,
     'mulplt': None,
     'batch_size': 500_000,
     'start': None,
@@ -46,12 +47,15 @@ params = {
     's_event_before': 60. * 10,
     's_event_after': 60. * 10,
     'default_event_before': 60. * 60 * 1,
-    'default_event_after': 60. * 60 * 1
+    'default_event_after': 60. * 60 * 1,
+    'model_labels': {'p': 0, 's': 1, 'n': 2},
+    'positive_labels': {'p': 0, 's': 1}
 }
 
 # Only this params can be set via script arguments
 param_aliases = {
     'config': ['--config', '-c'],
+    'threshold': ['--threshold'],
     'mulplt': ['--mulplt'],
     'batch_size': ['--batch-size'],
     'start': ['--start', '-s'],
@@ -71,6 +75,7 @@ param_aliases = {
 # Help messages
 param_help = {
     'config': 'Path to .ini config file',
+    'threshold': 'Positive prediction threshold, default: 0.95',
     'mulplt': 'Path to MULPLT.DEF file',
     'batch_size': 'Batch size for sliding windows memory, default: 500 000 samples',
     'start': 'start date in ISO 8601 format:\n'
@@ -135,6 +140,9 @@ if __name__ == '__main__':
             params_set.append(k)
 
     params = parse_ini(params['config'], params_set, params=params)
+
+    # Convert types
+    params['threshold'] = float(params['threshold'])
 
     # Parse dates
     def parse_date_param(d_params, name):
@@ -326,7 +334,7 @@ if __name__ == '__main__':
 
             for stream_group in streams:
 
-                group_scores = pt.predict_streams(model, stream_group, params['batch_size'])
+                group_scores = pt.predict_streams(model, stream_group, params = params)
 
                 # FOR EVERY STREAM GROUP:
                 # Check if stream traces number is equal
