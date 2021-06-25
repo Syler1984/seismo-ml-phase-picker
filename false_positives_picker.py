@@ -35,7 +35,7 @@ params = {
     's_path': None,
     'seisan': None,
     'frequency': 100.,
-    'out': 'noise.h5',
+    'out': 'noise',
     'debug': False,
     'seismo': False,
     'favor': False,

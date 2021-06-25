@@ -304,9 +304,9 @@ def predict_streams(model, streams, frequency = 100., params = None):
 
                     P[0] = prob
 
-                    write_batch(params['out'], 'X', X)
-                    write_batch(params['out'], 'Y', Y)
-                    write_batch(params['out'], 'P', P)
+                    write_batch(params['out_hdf5'], 'X', X)
+                    write_batch(params['out_hdf5'], 'Y', Y)
+                    write_batch(params['out_hdf5'], 'P', P)
 
                     print('Data saved!')
 
