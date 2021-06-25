@@ -1,5 +1,6 @@
 import numpy as np
 from scipy.signal import find_peaks
+from .h5_tools import write_batch
 
 
 def cut_spans_to_slices(cut_spans, start_time, end_time):
@@ -219,6 +220,20 @@ def get_positives(scores, label, other_labels, threshold):
     return positives
 
 
+def get_windows(batch, n_window, n_features, shift):
+    """
+    Returns window by its number in the batch.
+    :return:
+    """
+    n_channels = len(batch)
+    window = np.zeros((n_features, n_channels))
+    start_pos = shift * n_window
+    for i, trace in enumerate(batch):
+        window[:, i] = trace.data[start_pos : start_pos + n_features]
+
+    return window
+
+
 def predict_streams(model, streams, frequency = 100., params = None):
     """
     Predicts streams and returns scores
@@ -264,6 +279,8 @@ def predict_streams(model, streams, frequency = 100., params = None):
             predicted_labels = {}
             for p_label_name, p_label in params['positive_labels'].items():
 
+                print(f'MAX {p_label_name}: {max(scores[:, p_label])}')
+
                 other_labels = []
                 for m_label_name, m_label in params['model_labels'].items():
                     if m_label_name != p_label_name:
@@ -274,13 +291,16 @@ def predict_streams(model, streams, frequency = 100., params = None):
                                           other_labels,
                                           threshold = params['threshold'])
 
+                print(f'POSITIVES: {positives}')
+
                 predicted_labels[p_label_name] = positives
 
-            print('***\t' * 14)
-            for key, value in predicted_labels.items():
-                print('KEY: ', key)
-                print('VALUE: ', value)
-            print('***\t' * 14)
+            for key, predictions in predicted_labels.items():
+                for position, prob in predictions:
+                    # TODO: Get number of features and shift from parameters
+                    X = get_windows(batch, position, 400, 10)
+                    # Also save Y information
+                    write_batch('out.h5', 'X', X)
 
             # Extract additional info about positives, e.g. sample position, timestamp, channel data, P.
 
