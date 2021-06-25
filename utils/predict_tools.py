@@ -226,10 +226,10 @@ def get_windows(batch, n_window, n_features, shift):
     :return:
     """
     n_channels = len(batch)
-    window = np.zeros((n_features, n_channels))
+    window = np.zeros((1, n_features, n_channels))
     start_pos = shift * n_window
     for i, trace in enumerate(batch):
-        window[:, i] = trace.data[start_pos : start_pos + n_features]
+        window[0, :, i] = trace.data[start_pos : start_pos + n_features]
 
     return window
 
@@ -295,15 +295,25 @@ def predict_streams(model, streams, frequency = 100., params = None):
 
                 predicted_labels[p_label_name] = positives
 
-            for key, predictions in predicted_labels.items():
+            for label, predictions in predicted_labels.items():
+                Y = np.zeros(1, dtype = 'int')
+                Y[0] = params['model_labels'][label]
+
+                P = np.zeros(1)
+
                 for position, prob in predictions:
+
                     # TODO: Get number of features and shift from parameters
                     X = get_windows(batch, position, 400, 10)
-                    # Also save Y information
-                    write_batch('out.h5', 'X', X)
 
-            # Extract additional info about positives, e.g. sample position, timestamp, channel data, P.
+                    P[0] = prob
 
-            # Put them into the array
+                    write_batch(params['out'], 'X', X)
+                    write_batch(params['out'], 'Y', Y)
+                    write_batch(params['out'], 'P', P)
+
+                # TODO: Extract additional info about positives, e.g. sample position, timestamp, channel data, P.
+
+            # TODO: Put them into the array
 
     return []
