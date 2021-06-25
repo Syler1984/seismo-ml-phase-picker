@@ -279,8 +279,6 @@ def predict_streams(model, streams, frequency = 100., params = None):
             predicted_labels = {}
             for p_label_name, p_label in params['positive_labels'].items():
 
-                print(f'MAX {p_label_name}: {max(scores[:, p_label])}')
-
                 other_labels = []
                 for m_label_name, m_label in params['model_labels'].items():
                     if m_label_name != p_label_name:
@@ -290,8 +288,6 @@ def predict_streams(model, streams, frequency = 100., params = None):
                                           p_label,
                                           other_labels,
                                           threshold = params['threshold'])
-
-                print(f'POSITIVES: {positives}')
 
                 predicted_labels[p_label_name] = positives
 
@@ -311,6 +307,8 @@ def predict_streams(model, streams, frequency = 100., params = None):
                     write_batch(params['out'], 'X', X)
                     write_batch(params['out'], 'Y', Y)
                     write_batch(params['out'], 'P', P)
+
+                    print('Data saved!')
 
                 # TODO: Extract additional info about positives, e.g. sample position, timestamp, channel data, P.
 
