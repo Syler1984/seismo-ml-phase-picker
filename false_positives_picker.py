@@ -181,6 +181,9 @@ if __name__ == '__main__':
     if params['s_path'][-1] != '/':
         params['s_path'] += '/'
 
+    # Batch size fix
+    params['batch_size'] = int(params['batch_size'])
+
     # Initialize output directory
     if not os.path.isdir(params['out']):
 
