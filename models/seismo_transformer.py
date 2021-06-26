@@ -17,7 +17,7 @@ from tensorflow import keras
 from tensorflow.keras import layers
 from einops.layers.tensorflow import Rearrange
 
-from fast_attention import fast_attention
+from .fast_attention import fast_attention
 
 from kapre import STFT, Magnitude, MagnitudeToDecibel
 from kapre.composed import get_melspectrogram_layer, get_log_frequency_spectrogram_layer
