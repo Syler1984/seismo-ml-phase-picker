@@ -341,6 +341,8 @@ if __name__ == '__main__':
                     group_scores = pt.predict_streams(model, stream_group, params = params)
                 except AttributeError:
                     continue
+                except ValueError:
+                    continue
 
                 # FOR EVERY STREAM GROUP:
                 # Check if stream traces number is equal
