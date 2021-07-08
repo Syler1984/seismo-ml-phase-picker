@@ -334,6 +334,10 @@ if __name__ == '__main__':
             except Exception:  # TODO: Replace with less general built-in exceptions
                 continue
 
+            print('ARCHIVES:')
+            for channel in params['channel_order']:
+                print(archive_data[channel])
+
             streams = pt.preprocess_streams(streams, current_dt, current_end_dt, current_true_positives)  # preprocess data
 
             for stream_group in streams:
