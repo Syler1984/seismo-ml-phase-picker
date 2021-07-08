@@ -130,6 +130,7 @@ def sliding_window(data, length, shift):
 
     strides = [data.strides[0] * shift, data.strides[0]]
 
+    # TODO: Fix negative dimensions error!
     windows = np.lib.stride_tricks.as_strided(data, shape, strides)
 
     return windows.copy()
@@ -188,6 +189,9 @@ def get_positives(scores, label, other_labels, threshold):
 
     x = scores[:, label]
     peaks = find_peaks(x, distance = 10_000, height = [threshold, 1.])
+
+    print(f'label {label}, peaks:')
+    print(peaks)
 
     for i in range(len(peaks[0])):
 

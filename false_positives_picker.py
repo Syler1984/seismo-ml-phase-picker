@@ -358,4 +358,3 @@ if __name__ == '__main__':
 
         if end_date.year == current_dt.year and end_date.julday == current_dt.julday:
             current_end_dt = end_date
-
