@@ -10,7 +10,7 @@ from utils.converter import date_str
 
 # Silence tensorflow warnings
 import os
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
+# os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 
 # Default params
 default_model_weights = {
@@ -41,7 +41,7 @@ params = {
     'favor': False,
     'cnn': False,
     'weights': None,
-    'out_hdf5': 'data.hdf5',
+    'out_hdf5': 'data.h5',
     'p_event_before': 10.,
     'p_event_after': 60. * 60 * 1,
     's_event_before': 60. * 10,

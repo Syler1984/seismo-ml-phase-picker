@@ -254,12 +254,15 @@ def predict_streams(model, streams, frequency = 100., params = None):
         raise AttributeError('Not equal number of traces in the stream!')
 
     trace_count = trace_counts[0]
+    print('trace_count: ', trace_count)
     for i in range(trace_count):
 
         # Grab current traces
         traces = [x[i] for _, x in streams.items()]
         traces = trim_traces(traces)
         batch_count, last_batch = count_batches(traces, params['batch_size'])
+
+        print('batch_count: ', batch_count)
 
         for b in range(batch_count):
 
