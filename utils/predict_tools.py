@@ -190,8 +190,9 @@ def get_positives(scores, label, other_labels, threshold):
     x = scores[:, label]
     peaks = find_peaks(x, distance = 10_000, height = [threshold, 1.])
 
-    print(f'label {label}, peaks:')
-    print(peaks)
+    if len(peaks):
+        print(f'label {label}, peaks:')
+        print(peaks)
 
     for i in range(len(peaks[0])):
 
