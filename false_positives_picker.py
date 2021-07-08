@@ -312,7 +312,8 @@ if __name__ == '__main__':
 
             # Archives path and meta data
             archive_data = st.archive_to_path(archive_list, current_dt,
-                                           params['archive_path'], params['channel_order'])
+                                              params['archive_path'],
+                                              params['channel_order'])
 
             # Check if streams path are valid
             from os.path import isfile
