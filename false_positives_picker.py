@@ -319,6 +319,7 @@ if __name__ == '__main__':
 
         progress_bar.set_prefix_expression('Station {station} out of {n_stations} [')
         progress_bar.set_postfix_expression('] - Batch: {start} - {end}')
+        progress_bar.set_prefix_arg('n_stations', len(stations))
 
         progress_bar.set_max(stations = len(stations), streams = 1., traces = 1., batches = 1., inter = 1.)
 
