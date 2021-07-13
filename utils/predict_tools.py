@@ -242,6 +242,61 @@ def get_windows(batch, n_window, n_features, shift):
     return window
 
 
+def restore_scores(_scores, shape, shift):
+    """
+    Restores scores to original size using linear interpolation.
+
+    Arguments:
+    scores -- original 'compressed' scores
+    shape  -- shape of the restored scores
+    shift  -- sliding windows shift
+    """
+    new_scores = np.zeros(shape)
+    for i in range(1, _scores.shape[0]):
+
+        for j in range(_scores.shape[1]):
+
+            start_i = (i - 1) * shift
+            end_i = i * shift
+            if end_i >= shape[0]:
+                end_i = shape[0] - 1
+
+            new_scores[start_i : end_i, j] = np.linspace(_scores[i - 1, j], _scores[i, j], shift + 1)[:end_i - start_i]
+
+    return new_scores
+
+
+def print_scores(data, scores, predictions, file_token, window_length = 400):
+    """
+    Prints scores and waveforms.
+    """
+    right_shift = window_length // 2
+
+    shapes = [d.data.shape[0] for d in data] + [scores.shape[0]]
+    shapes = set(shapes)
+
+    if len(shapes) != 1:
+        raise AttributeError('All waveforms and scores must have similar length!')
+
+    length = shapes.pop()
+
+    waveforms = np.zeros((length, len(data)))
+    for i, d in enumerate(data):
+        waveforms[:, i] = d.data
+
+    # Shift scores
+    shifted_scores = np.zeros((length, len(data)))
+    shifted_scores[right_shift:] = scores[:-right_shift]
+
+    plot_wave_scores(file_token, waveforms, shifted_scores, data[0].stats.starttime, predictions,
+                     right_shift = right_shift)
+
+    # TODO: Save predictions samples in .csv ?
+
+    np.save(f'{file_token}_wave.npy', waveforms)
+    np.save(f'{file_token}_scores.npy', shifted_scores)
+
+
 def predict_streams(model, streams, frequency = 100., params = None, progress_bar = None):
     """
     Predicts streams and returns scores
@@ -300,6 +355,12 @@ def predict_streams(model, streams, frequency = 100., params = None, progress_ba
 
             # Predict
             scores = scan_batch(model, batch)
+
+            # TODO: Should i restore scores?
+            # 1. Try restoring scores and look at results
+            # 2. Drop scores restoring, do not forget to change parameters for pick detection (window size, etc.)
+            # 3. Compare results!
+            scores = restore_scores(scores, (len(batch[0]), len(params['model_labels'])), 10)
 
             # Find positives
             predicted_labels = {}
