@@ -190,10 +190,6 @@ def get_positives(scores, label, other_labels, threshold):
     x = scores[:, label]
     peaks = find_peaks(x, distance = 10_000, height = [threshold, 1.])
 
-    if len(peaks[0]):
-        print(f'label {label}, peaks:')
-        print(peaks)
-
     for i in range(len(peaks[0])):
 
         start_id = peaks[0][i] - avg_window_half_size
@@ -221,10 +217,7 @@ def get_positives(scores, label, other_labels, threshold):
 
         if is_max:
             positives.append([peaks[0][i], peaks[1]['peak_heights'][i]])
-
-    print('positives: ')
-    print(positives)
-
+    
     return positives
 
 
@@ -465,7 +458,7 @@ def predict_streams(model, streams, frequency = 100., params = None, progress_ba
                     X = get_windows(batch, position, 400, 10)
 
                     P[0] = prob
-
+                    print(params['out_hdf5'])
                     write_batch(params['out_hdf5'], 'X', X)
                     write_batch(params['out_hdf5'], 'Y', Y)
                     write_batch(params['out_hdf5'], 'P', P)
@@ -475,7 +468,7 @@ def predict_streams(model, streams, frequency = 100., params = None, progress_ba
                 # TODO: Extract additional info about positives, e.g. sample position, timestamp, channel data, P.
 
             # TODO: Put them into the array
-            if True:
+            if False:
                 print_scores(batch, scores, predicted_labels, f't{i}_b{b}')
 
     return []
