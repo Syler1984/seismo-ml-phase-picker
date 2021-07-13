@@ -222,6 +222,9 @@ def get_positives(scores, label, other_labels, threshold):
         if is_max:
             positives.append([peaks[0][i], peaks[1]['peak_heights'][i]])
 
+    print('positives: ')
+    print(positives)
+
     return positives
 
 

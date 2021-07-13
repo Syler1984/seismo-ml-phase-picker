@@ -356,11 +356,7 @@ if __name__ == '__main__':
             for channel in params['channel_order']:
                 print(archive_data[channel])
 
-            print('STREAMS BEFORE: ', streams)
-            print('CURRENT_TRUE_POSITIVES: ')
-            print(current_true_positives)
             streams = pt.preprocess_streams(streams, current_dt, current_end_dt, current_true_positives)  # preprocess data
-            print('STREAMS AFTER: ', streams)
 
             progress_bar.change_max('streams', len(streams))
             progress_bar.set_progress(0, level = 'streams')
