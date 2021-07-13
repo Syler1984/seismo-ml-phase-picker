@@ -7,6 +7,7 @@ from utils.ini_tools import parse_ini
 import utils.seisan_tools as st
 import utils.predict_tools as pt
 from utils.converter import date_str
+from utils.progress_bar import ProgressBar
 
 # Silence tensorflow warnings
 import os
@@ -308,7 +309,23 @@ if __name__ == '__main__':
         # TODO: Write function which takes time span and arrays of current_true_positives time spans and returns
         #           array of timespans to which i should cut the base timespan.
 
-        for archive_list in stations:
+        progress_bar = ProgressBar()
+
+        progress_bar.set_length(60)
+
+        progress_bar.set_empty_character('.')
+        progress_bar.set_progress_character('=')
+        progress_bar.set_current_progress_char('>')
+
+        progress_bar.set_prefix_expression('Station {station} out of {n_stations} [')
+        progress_bar.set_postfix_expression('] - Batch: {start} - {end}')
+
+        progress_bar.set_max(stations = len(stations), streams = 1., traces = 1., batches = 1., inter = 1.)
+
+        for i_station, archive_list in enumerate(stations):
+
+            progress_bar.set_progress(i_station, level = 'stations')
+            progress_bar.set_prefix_arg('station', i_station + 1)
 
             # Archives path and meta data
             archive_data = st.archive_to_path(archive_list, current_dt,
@@ -340,10 +357,16 @@ if __name__ == '__main__':
 
             streams = pt.preprocess_streams(streams, current_dt, current_end_dt, current_true_positives)  # preprocess data
 
-            for stream_group in streams:
+            progress_bar.change_max('streams', len(streams))
+            progress_bar.set_progress(0, level = 'streams')
+
+            for i_stream, stream_group in enumerate(streams):
+
+                progress_bar.set_progress(i_stream, level = 'streams')
 
                 try:
-                    group_scores = pt.predict_streams(model, stream_group, params = params)
+                    group_scores = pt.predict_streams(model, stream_group,
+                                                      params = params, progress_bar = progress_bar)
                 except AttributeError:
                     continue
                 except ValueError:
@@ -355,6 +378,8 @@ if __name__ == '__main__':
                 #   Count batches
                 #   Loop for every batch, maybe, do this in separate function:
                 #     Predict. Find peaks. Find positives. Save them into h5py.
+
+        print()
 
         # Shift date
         current_dt += 24 * 60 * 60

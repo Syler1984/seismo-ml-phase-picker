@@ -239,7 +239,7 @@ def get_windows(batch, n_window, n_features, shift):
     return window
 
 
-def predict_streams(model, streams, frequency = 100., params = None):
+def predict_streams(model, streams, frequency = 100., params = None, progress_bar = None):
     """
     Predicts streams and returns scores
     :param frequency:
@@ -255,14 +255,27 @@ def predict_streams(model, streams, frequency = 100., params = None):
         raise AttributeError('Not equal number of traces in the stream!')
 
     trace_count = trace_counts[0]
+
+    # Progress bar
+    progress_bar.change_max('traces', trace_count)
+    progress_bar.set_progress(0, level = 'traces')
+
     for i in range(trace_count):
+
+        progress_bar.set_progress(i, level = 'traces')
 
         # Grab current traces
         traces = [x[i] for _, x in streams.items()]
         traces = trim_traces(traces)
         batch_count, last_batch = count_batches(traces, params['batch_size'])
 
+        # Progress bar
+        progress_bar.change_max('batches', batch_count)
+        progress_bar.set_progress(0, level = 'batches')
+
         for b in range(batch_count):
+
+            progress_bar.set_progress(b, level = 'batches')
 
             # Get batch data
             c_batch_size = params['batch_size']
@@ -274,6 +287,11 @@ def predict_streams(model, streams, frequency = 100., params = None):
             start_time = traces[0].stats.starttime
             slice_start = start_time + start_sample / frequency
             slice_end = start_time + end_sample / frequency
+
+            # Progress bar
+            progress_bar.set_postfix_arg('start', slice_start)
+            progress_bar.set_postfix_arg('end', slice_end)
+            progress_bar.print()
 
             batch = [trace.slice(slice_start, slice_end) for trace in traces]
 
