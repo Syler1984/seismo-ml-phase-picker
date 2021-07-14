@@ -204,7 +204,7 @@ if __name__ == '__main__':
             else:
                 params['weights'] = default_model_weights['favor']
 
-        model = seismo_load.load_favor(params['weights'])
+        model = seismo_load.load_performer(params['weights'])
     elif params['cnn']:
         print('Loading fast-attention Seismo-Transformer with CNN')
         # Check model weights
