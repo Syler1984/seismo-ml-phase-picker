@@ -455,18 +455,15 @@ def predict_streams(model, streams, frequency = 100., params = None, progress_ba
                 for position, prob in predictions:
 
                     # TODO: Get number of features and shift from parameters
-                    X = get_windows(batch, position, 400, 10)
+                    X = get_windows(batch, int(position / 10), 400, 10)
 
                     P[0] = prob
-                    print(params['out_hdf5'])
                     write_batch(params['out_hdf5'], 'X', X)
                     write_batch(params['out_hdf5'], 'Y', Y)
                     write_batch(params['out_hdf5'], 'P', P)
 
-                    print('Data saved!')
-
                 # TODO: Extract additional info about positives, e.g. sample position, timestamp, channel data, P.
-
+            
             # TODO: Put them into the array
             if False:
                 print_scores(batch, scores, predicted_labels, f't{i}_b{b}')
