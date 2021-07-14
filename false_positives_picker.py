@@ -15,8 +15,8 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 
 # Default params
 default_model_weights = {
-    'favor': 'w_model_performer_with_spec.hd5',
-    'cnn': 'weights_model_cnn_spec.hd5'
+    'favor': 'weights/w_model_performer_with_spec.hd5',
+    'cnn': 'weights/weights_model_cnn_spec.hd5'
 }
 
 day_length = 60. * 60 * 24
