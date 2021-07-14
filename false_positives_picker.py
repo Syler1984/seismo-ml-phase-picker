@@ -15,9 +15,8 @@ import os
 
 # Default params
 default_model_weights = {
-    'seismo': 'weights/seismo_sakh_2014_2019.h5',
-    'favor': None,
-    'cnn': None
+    'favor': 'w_model_performer_with_spec.hd5',
+    'cnn': 'weights_model_cnn_spec.hd5'
 }
 
 day_length = 60. * 60 * 24
@@ -38,7 +37,6 @@ params = {
     'frequency': 100.,
     'out': 'noise',
     'debug': False,
-    'seismo': False,
     'favor': False,
     'cnn': False,
     'weights': None,
@@ -67,7 +65,6 @@ param_aliases = {
     'seisan': ['--seisan'],
     'out': ['--out', '-o'],
     'debug': ['--debug', '-d'],
-    'seismo': ['--seismo'],
     'favor': ['--favor'],
     'cnn': ['--cnn'],
     'weights': ['--weights', '-w']
@@ -99,7 +96,6 @@ param_help = {
     'seisan': 'Path to SEISAN.DEF',
     'out': 'Output path, default: "wave_picks"',
     'debug': 'Enable debug info output',
-    'seismo': 'Load default Seismo-Transformer',
     'favor': 'Load fast-attention Seismo-Transformer',
     'cnn': 'Load fast-attention Seismo-Transformer with CNN',
     'weights': 'Path to model weights file'
@@ -108,7 +104,6 @@ param_help = {
 # Param actions
 param_actions = {
     'debug': 'store_true',
-    'seismo': 'store_true',
     'favor': 'store_true',
     'cnn': 'store_true'
 }
@@ -200,17 +195,7 @@ if __name__ == '__main__':
     # Loading model
     from models import seismo_load
 
-    if params['seismo']:
-        print('Loading default Seismo-Transformer')
-        # Check model weights
-        if not params['weights']:
-            if not default_model_weights['seismo']:
-                raise AttributeError('No model weights provided!')
-            else:
-                params['weights'] = default_model_weights['seismo']
-
-        model = seismo_load.load_transformer(params['weights'])
-    elif params['favor']:
+    if params['favor']:
         print('Loading fast-attention Seismo-Transformer')
         # Check model weights
         if not params['weights']:
