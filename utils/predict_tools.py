@@ -190,9 +190,6 @@ def get_positives(scores, label, other_labels, threshold):
     x = scores[:, label]
     peaks = find_peaks(x, distance = 10_000, height = [threshold, 1.])
 
-    print(f'label {label}, peaks:')
-    print(peaks)
-
     for i in range(len(peaks[0])):
 
         start_id = peaks[0][i] - avg_window_half_size
@@ -220,7 +217,7 @@ def get_positives(scores, label, other_labels, threshold):
 
         if is_max:
             positives.append([peaks[0][i], peaks[1]['peak_heights'][i]])
-
+    
     return positives
 
 
@@ -238,7 +235,137 @@ def get_windows(batch, n_window, n_features, shift):
     return window
 
 
-def predict_streams(model, streams, frequency = 100., params = None):
+def restore_scores(_scores, shape, shift):
+    """
+    Restores scores to original size using linear interpolation.
+
+    Arguments:
+    scores -- original 'compressed' scores
+    shape  -- shape of the restored scores
+    shift  -- sliding windows shift
+    """
+    new_scores = np.zeros(shape)
+    for i in range(1, _scores.shape[0]):
+
+        for j in range(_scores.shape[1]):
+
+            start_i = (i - 1) * shift
+            end_i = i * shift
+            if end_i >= shape[0]:
+                end_i = shape[0] - 1
+
+            new_scores[start_i : end_i, j] = np.linspace(_scores[i - 1, j], _scores[i, j], shift + 1)[:end_i - start_i]
+
+    return new_scores
+
+
+def plot_wave_scores(file_token, wave, scores,
+                     start_time, predictions, right_shift = 0,
+                     channel_names = ['N', 'E', 'Z'],
+                     score_names = ['P', 'S', 'N']):
+    """
+    Plots waveform and prediction scores as an image
+    """
+    channels_num = wave.shape[1]
+    classes_num = scores.shape[1]
+    scores_length = scores.shape[0]
+
+    # TODO: Make figure size dynamically chosen, based on the input length
+    fig = plt.figure(figsize = (9.8, 7.), dpi = 160)
+    axes = fig.subplots(channels_num + classes_num, 1, sharex = True)
+
+    # Plot wave
+    for i in range(channels_num):
+
+        axes[i].plot(wave[:, i], color = '#000000', linewidth = 1.)
+        axes[i].locator_params(axis = 'both', nbins = 4)
+        axes[i].set_ylabel(channel_names[i])
+
+    # Process events and ticks
+    freq = 100.  # TODO: implement through Trace.stats
+    labels = {'p': 0, 's': 1}  # TODO: configure labels through options
+    # TODO: make sure that labels are not too close.
+    ticks = [100, scores_length - 100]
+    events = {}
+
+    for label, index in labels.items():
+
+        label_events = []
+        for pos, _ in predictions[label]:
+
+            pos += right_shift
+            label_events.append(pos)
+            ticks.append(pos)
+
+        events[index] = label_events
+
+    # Plot scores
+    for i in range(classes_num):
+
+        axes[channels_num + i].plot(scores[:, i], color = '#0022cc', linewidth = 1.)
+
+        if i in events:
+            for pos in events[i]:
+                axes[channels_num + i].plot([pos], scores[:, i][pos], 'r*', markersize = 7)
+
+        axes[channels_num + i].set_ylabel(score_names[i])
+
+    # Set x-ticks
+    for ax in axes:
+        ax.set_xticks(ticks)
+
+    # Configure ticks labels
+    xlabels = []
+    for pos in axes[-1].get_xticks():
+
+        c_time = start_time + pos/freq
+        micro = c_time.strftime('%f')[:2]
+        xlabels.append(c_time.strftime('%H:%M:%S') + f'.{micro}')
+
+    axes[-1].set_xticklabels(xlabels)
+
+    # Add date text
+    date = start_time.strftime('%Y-%m-%d')
+    fig.text(0.095, 1., date, va = 'center')
+
+    # Finalize and save
+    fig.tight_layout()
+    fig.savefig(file_token + '.jpg')
+    fig.clear()
+
+
+def print_scores(data, scores, predictions, file_token, window_length = 400):
+    """
+    Prints scores and waveforms.
+    """
+    right_shift = window_length // 2
+
+    shapes = [d.data.shape[0] for d in data] + [scores.shape[0]]
+    shapes = set(shapes)
+
+    if len(shapes) != 1:
+        raise AttributeError('All waveforms and scores must have similar length!')
+
+    length = shapes.pop()
+
+    waveforms = np.zeros((length, len(data)))
+    for i, d in enumerate(data):
+        waveforms[:, i] = d.data
+
+    # Shift scores
+    shifted_scores = np.zeros((length, len(data)))
+    shifted_scores[right_shift:] = scores[:-right_shift]
+
+    plot_wave_scores(file_token, waveforms, shifted_scores, data[0].stats.starttime, predictions,
+                     right_shift = right_shift)
+
+    # TODO: Save predictions samples in .csv ?
+
+    np.save(f'{file_token}_wave.npy', waveforms)
+    np.save(f'{file_token}_scores.npy', shifted_scores)
+
+
+def predict_streams(model, streams, frequency = 100., params = None, progress_bar = None):
     """
     Predicts streams and returns scores
     :param frequency:
@@ -254,17 +381,27 @@ def predict_streams(model, streams, frequency = 100., params = None):
         raise AttributeError('Not equal number of traces in the stream!')
 
     trace_count = trace_counts[0]
-    print('trace_count: ', trace_count)
+
+    # Progress bar
+    progress_bar.change_max('traces', trace_count)
+    progress_bar.set_progress(0, level = 'traces')
+
     for i in range(trace_count):
+
+        progress_bar.set_progress(i, level = 'traces')
 
         # Grab current traces
         traces = [x[i] for _, x in streams.items()]
         traces = trim_traces(traces)
         batch_count, last_batch = count_batches(traces, params['batch_size'])
 
-        print('batch_count: ', batch_count)
+        # Progress bar
+        progress_bar.change_max('batches', batch_count)
+        progress_bar.set_progress(0, level = 'batches')
 
         for b in range(batch_count):
+
+            progress_bar.set_progress(b, level = 'batches')
 
             # Get batch data
             c_batch_size = params['batch_size']
@@ -277,10 +414,21 @@ def predict_streams(model, streams, frequency = 100., params = None):
             slice_start = start_time + start_sample / frequency
             slice_end = start_time + end_sample / frequency
 
+            # Progress bar
+            progress_bar.set_postfix_arg('start', slice_start)
+            progress_bar.set_postfix_arg('end', slice_end)
+            progress_bar.print()
+
             batch = [trace.slice(slice_start, slice_end) for trace in traces]
 
             # Predict
             scores = scan_batch(model, batch)
+
+            # TODO: Should i restore scores?
+            # 1. Try restoring scores and look at results
+            # 2. Drop scores restoring, do not forget to change parameters for pick detection (window size, etc.)
+            # 3. Compare results!
+            scores = restore_scores(scores, (len(batch[0]), len(params['model_labels'])), 10)
 
             # Find positives
             predicted_labels = {}
@@ -307,18 +455,17 @@ def predict_streams(model, streams, frequency = 100., params = None):
                 for position, prob in predictions:
 
                     # TODO: Get number of features and shift from parameters
-                    X = get_windows(batch, position, 400, 10)
+                    X = get_windows(batch, int(position / 10), 400, 10)
 
                     P[0] = prob
-
                     write_batch(params['out_hdf5'], 'X', X)
                     write_batch(params['out_hdf5'], 'Y', Y)
                     write_batch(params['out_hdf5'], 'P', P)
 
-                    print('Data saved!')
-
                 # TODO: Extract additional info about positives, e.g. sample position, timestamp, channel data, P.
-
+            
             # TODO: Put them into the array
+            if False:
+                print_scores(batch, scores, predicted_labels, f't{i}_b{b}')
 
     return []
