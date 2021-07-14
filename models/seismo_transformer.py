@@ -6,21 +6,17 @@ Github: https://github.com/jamm1985
 Description: model layers, model itself and auxiliary functions
 """
 
-import math
-import six
 import h5py
 from sklearn.model_selection import train_test_split
-import itertools
 
 import tensorflow as tf
 from tensorflow import keras
 from tensorflow.keras import layers
 from einops.layers.tensorflow import Rearrange
 
-from fast_attention import fast_attention
+from .fast_attention import fast_attention
 
 from kapre import STFT, Magnitude, MagnitudeToDecibel
-from kapre.composed import get_melspectrogram_layer, get_log_frequency_spectrogram_layer
 
 import numpy as np
 
