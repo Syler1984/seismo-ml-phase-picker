@@ -17,7 +17,7 @@ from tensorflow import keras
 from tensorflow.keras import layers
 from einops.layers.tensorflow import Rearrange
 
-from .fast_attention import fast_attention
+from fast_attention import fast_attention
 
 from kapre import STFT, Magnitude, MagnitudeToDecibel
 from kapre.composed import get_melspectrogram_layer, get_log_frequency_spectrogram_layer
@@ -125,6 +125,20 @@ class PosEmbeding(keras.layers.Layer):
         return inputs + self.w
 
 
+class PosEmbeding2(layers.Layer):
+    def __init__(self, num_patches, projection_dim):
+        super(PosEmbeding2, self).__init__()
+        self.num_patches = num_patches
+        self.position_embedding = layers.Embedding(
+            input_dim=num_patches, output_dim=projection_dim
+        )
+
+    def call(self, inputs):
+        positions = tf.range(start=0, limit=self.num_patches, delta=1)
+        encoded = inputs + self.position_embedding(positions)
+        return encoded
+
+
 """
 Rearrange 3 channels with patches to 1 channel
 """
@@ -210,151 +224,26 @@ class PerformerBlock(layers.Layer):
     def __init__(self, embed_dim, num_heads, ff_dim, rate=0.1):
         super(PerformerBlock, self).__init__()
         self.att = fast_attention.Attention(
-            num_heads=num_heads, hidden_size=embed_dim, attention_dropout=0.0)
-        self.ffn = keras.Sequential(
-            [layers.Dense(ff_dim,
-                          activation='gelu'),
-             layers.Dense(embed_dim), ]
-        )
+            num_heads=num_heads, hidden_size=embed_dim, attention_dropout=0.1)
+        self.ffn1 = layers.Dense(ff_dim, activation='gelu')
+        self.ffn2 = layers.Dense(embed_dim, activation='gelu')
+        self.add1 = layers.Add()
+        self.add2 = layers.Add()
         self.layernorm1 = layers.LayerNormalization(epsilon=1e-6)
         self.layernorm2 = layers.LayerNormalization(epsilon=1e-6)
         self.dropout1 = layers.Dropout(rate)
         self.dropout2 = layers.Dropout(rate)
 
     def call(self, inputs, training):
-        attn_output = self.att(inputs, inputs, bias=None)
-        attn_output = self.dropout1(attn_output, training=training)
-        out1 = self.layernorm1(inputs + attn_output)
-        ffn_output = self.ffn(out1)
-        ffn_output = self.dropout2(ffn_output, training=training)
-        return self.layernorm2(out1 + ffn_output)
+        ln_1 = self.layernorm1(inputs)
+        attn_output = self.att(ln_1, ln_1, bias=None)
+        add_1 = self.add1([attn_output, inputs])
+        ln_2 = self.layernorm1(add_1)
+        mlp_1 = self.ffn1(ln_2)
+        dropout_1 = self.dropout1(mlp_1)
+        mlp_2 = self.ffn2(dropout_1)
+        return self.dropout2(mlp_2)
 
-"""
-Models section
-"""
-def seismo_transformer(
-        maxlen=400,
-        patch_size=25,
-        num_channels=3,
-        d_model=96,
-        num_heads=8,
-        ff_dim_factor=4,
-        layers_depth=8,
-        num_classes=3,
-        drop_out_rate=0.1):
-    """
-    Model for P/S/N waves classification using ViT approach
-    Parameters:
-    :maxlen: maximum samples of waveforms
-    :patch_size: patch size for every single channel
-    :num_channels: number of channels (usually it's equal to 3)
-    :d_model: Embedding size for each token
-    :num_heads: Number of attention heads
-    :ff_dim_factor: Hidden layer size in feed forward network inside transformer
-                    ff_dim = d_model * ff_dim_factor
-    :layers_depth: The number of transformer blocks
-    :num_classes: The number of classes to predict
-    :returns: Keras model object
-    """
-    num_patches = maxlen // patch_size
-    ff_dim = d_model * ff_dim_factor
-    inputs = layers.Input(shape=(maxlen, num_channels))
-    x = tf.keras.layers.Permute((2, 1))(inputs)
-    # patch the input channel
-    x = tf.keras.layers.Reshape((num_channels, num_patches, patch_size))(x)
-    x = RearrangeCh()(x)
-    # embedding
-    x = tf.keras.layers.Dense(d_model)(x)
-    # cls token
-    x = ClsToken(d_model)(x)
-    # positional embeddings
-    x = PosEmbeding(num_patches=num_patches + 1, embed_dim=d_model)(x)
-    # encoder block
-    x = layers.Dropout(drop_out_rate)(x)
-    for i in range(layers_depth):
-        x = TransformerBlock(d_model, num_heads, ff_dim)(x)
-    # to MLP head
-    x = tf.keras.layers.Lambda(lambda x: x[:, 0])(x)
-    # MLP-head
-    #x = tf.keras.layers.LayerNormalization(epsilon=1e-6)(x)
-    x = layers.Dropout(drop_out_rate)(x)
-    x = tf.keras.layers.Dense(ff_dim, activation='gelu')(x)
-    x = layers.Dropout(drop_out_rate)(x)
-    outputs = layers.Dense(num_classes, activation='softmax')(x)
-    model = keras.Model(inputs=inputs, outputs=outputs)
-    return model
-
-
-def seismo_transformer_with_spec(
-        maxlen=400,
-        nfft=128,
-        hop_length=4,
-        patch_size_1=69,
-        patch_size_2=13,
-        num_channels=3,
-        num_patches=5,
-        d_model=80,
-        num_heads=8,
-        ff_dim_factor=4,
-        layers_depth=1,
-        num_classes=3,
-        drop_out_rate=0.1):
-    """
-    The model for P/S/N waves classification using ViT approach
-    with converted raw signal to spectrogram and the treat it as input to TRANSFORMER
-    Parameters:
-    :maxlen: maximum samples of waveforms
-    :nfft: number of FFTs in short-time Fourier transform
-    :hop_length: Hop length in sample between analysis windows
-    :patch_size_1: patch size for first dimention (depends on nfft/hop_length)
-    :patch_size_2: patch size for second dimention (depends on nfft/hop_length)
-    :num_channels: number of channels (usually it's equal to 3)
-    :num_patches: resulting number of patches (FIX manual setup!)
-    :d_model: Embedding size for each token
-    :num_heads: Number of attention heads
-    :ff_dim_factor: Hidden layer size in feed forward network inside transformer
-                    ff_dim = d_model * ff_dim_factor
-    :layers_depth: The number of transformer blocks
-    :num_classes: The number of classes to predict
-    :returns: Keras model object
-    """
-    #num_patches = (maxlen // patch_size)**2
-    num_patches = num_patches
-    ff_dim = d_model * ff_dim_factor
-    inputs = layers.Input(shape=(maxlen, num_channels))
-    # do transform
-    x = STFT(n_fft=nfft,
-             window_name=None,
-             pad_end=False,
-             hop_length=hop_length,
-             input_data_format='channels_last',
-             output_data_format='channels_last',)(inputs)
-    x = Magnitude()(x)
-    x = MagnitudeToDecibel()(x)
-    #x = MMScaler()(x)
-    x = MaxABSScaler()(x)
-    # patch the input channel
-    x = Rearrange3d(p1=patch_size_1,p2=patch_size_2)(x)
-    # embedding
-    x = tf.keras.layers.Dense(d_model)(x)
-    # cls token
-    x = ClsToken(d_model)(x)
-    # positional embeddings
-    x = PosEmbeding(num_patches=num_patches + 1, embed_dim=d_model)(x)
-    # encoder block
-    x = layers.Dropout(drop_out_rate)(x)
-    for i in range(layers_depth):
-        x = TransformerBlock(d_model, num_heads, ff_dim)(x)
-    # to MLP head
-    x = tf.keras.layers.Lambda(lambda x: x[:, 0])(x)
-    # MLP-head
-    #x = tf.keras.layers.LayerNormalization(epsilon=1e-6)(x)
-    x = layers.Dropout(drop_out_rate)(x)
-    x = tf.keras.layers.Dense(ff_dim, activation='gelu')(x)
-    x = layers.Dropout(drop_out_rate)(x)
-    outputs = layers.Dense(num_classes, activation='softmax')(x)
-    model = keras.Model(inputs=inputs, outputs=outputs)
-    return model
 
 
 def seismo_performer_with_spec(
@@ -412,16 +301,18 @@ def seismo_performer_with_spec(
     # cls token
     x = ClsToken(d_model)(x)
     # positional embeddings
-    x = PosEmbeding(num_patches=num_patches + 1, embed_dim=d_model)(x)
+    x = PosEmbeding2(num_patches=num_patches + 1, projection_dim=d_model)(x)
     # encoder block
-    x = layers.Dropout(drop_out_rate)(x)
     for i in range(layers_depth):
-        x = PerformerBlock(d_model, num_heads, ff_dim)(x)
+        x = PerformerBlock(d_model, num_heads, ff_dim, rate=drop_out_rate)(x)
     # to MLP head
     x = tf.keras.layers.Lambda(lambda x: x[:, 0])(x)
+    x = tf.keras.layers.LayerNormalization(epsilon=1e-6)(x)
     # MLP-head
     x = layers.Dropout(drop_out_rate)(x)
-    x = tf.keras.layers.Dense(ff_dim, activation='gelu')(x)
+    x = tf.keras.layers.Dense(d_model*2, activation='gelu')(x)
+    x = layers.Dropout(drop_out_rate)(x)
+    x = tf.keras.layers.Dense(d_model, activation='gelu')(x)
     x = layers.Dropout(drop_out_rate)(x)
     outputs = layers.Dense(num_classes, activation='softmax')(x)
     model = keras.Model(inputs=inputs, outputs=outputs)
