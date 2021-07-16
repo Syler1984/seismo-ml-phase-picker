@@ -226,6 +226,22 @@ def get_windows(batch, n_window, n_features, shift):
     Returns window by its number in the batch.
     :return:
     """
+
+    # TODO: Get number of features and shift from parameters
+    windows = [sliding_window(x.data, n_features, shift) for x in batch]  # get windows
+    min_length = min([x.shape[0] for x in windows])  # trim windows
+
+    # Convert to NumPy array
+    data = np.zeros((min_length, 400, len(windows)))
+    for i in range(len(windows)):
+        data[:, :, i] = windows[i][:min_length]
+    windows = data
+
+    normalize_windows(windows)
+
+    return windows[n_window]
+
+    """
     n_channels = len(batch)
     window = np.zeros((1, n_features, n_channels))
     start_pos = shift * n_window
@@ -233,6 +249,7 @@ def get_windows(batch, n_window, n_features, shift):
         window[0, :, i] = trace.data[start_pos : start_pos + n_features]
 
     return window
+    """
 
 
 def restore_scores(_scores, shape, shift):
@@ -455,7 +472,7 @@ def predict_streams(model, streams, frequency = 100., params = None, progress_ba
                 for position, prob in predictions:
 
                     # TODO: Get number of features and shift from parameters
-                    X = get_windows(batch, int(position / 10), 400, 10)
+                    X = get_windows(batch, position, 400, 10)
 
                     P[0] = prob
                     write_batch(params['out_hdf5'], 'X', X)
