@@ -150,25 +150,13 @@ def normalize_windows(windows):
         windows[i, :, :] = windows[i, :, :] / global_max
 
 
-def scan_batch(model, batch):
+def scan_batch(model, windows):
     """
     Scans batch and returns predicted scores.
     :param model:
-    :param batch:
+    :param windows:
     :return:
     """
-    # TODO: Get number of features and shift from parameters
-    windows = [sliding_window(x.data, 400, 10) for x in batch]  # get windows
-    min_length = min([x.shape[0] for x in windows])  # trim windows
-
-    # Convert to NumPy array
-    data = np.zeros((min_length, 400, len(windows)))
-    for i in range(len(windows)):
-        data[:, :, i] = windows[i][:min_length]
-    windows = data
-
-    normalize_windows(windows)
-
     # TODO: Maybe keep model verbal and use it's own tools to help with the progress bar
     scores = model.predict(windows, verbose = False, batch_size = 500)
 
@@ -438,8 +426,21 @@ def predict_streams(model, streams, frequency = 100., params = None, progress_ba
 
             batch = [trace.slice(slice_start, slice_end) for trace in traces]
 
+            # Prepare windows
+            # TODO: Get number of features and shift from parameters
+            windows = [sliding_window(x.data, 400, 10) for x in batch]  # get windows
+            min_length = min([x.shape[0] for x in windows])  # trim windows
+
+            # Convert to NumPy array
+            data = np.zeros((min_length, 400, len(windows)))
+            for i in range(len(windows)):
+                data[:, :, i] = windows[i][:min_length]
+            windows = data
+
+            normalize_windows(windows)
+
             # Predict
-            scores = scan_batch(model, batch)
+            scores = scan_batch(model, windows)
 
             # TODO: Should i restore scores?
             # 1. Try restoring scores and look at results
