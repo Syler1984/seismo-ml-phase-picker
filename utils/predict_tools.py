@@ -209,6 +209,58 @@ def get_positives(scores, label, other_labels, threshold):
     return positives
 
 
+def get_simple_positives(scores, label, other_labels, threshold):
+    """
+
+    :param scores:
+    :param label:
+    :param other_labels:
+    :param threshold:
+    :return:
+    """
+
+    # {'p': [[16770, 0.98528414964675903], [27750, 0.99561172723770142], [69020, 0.99768626689910889],
+    # [84650, 0.98480713367462158]], 's': [[860, 0.99430805444717407]]}
+
+    avg_window_half_size = 10
+    positives = []
+
+    x = scores[:, label]
+
+    for i in range(x.shape[0]):
+
+        if x[i] < threshold:
+            continue
+
+        start_id = i - avg_window_half_size
+        if start_id < 0:
+            start_id = 0
+
+        end_id = start_id + avg_window_half_size*2
+        if end_id > len(x):
+            end_id = len(x) - 1
+            start_id = end_id - avg_window_half_size*2
+
+        # Get mean values
+        peak_mean = x[start_id : end_id].mean()
+
+        means = []
+        for idx in other_labels:
+
+            means.append(scores[:, idx][start_id : end_id].mean())
+
+        is_max = True
+        for m in means:
+
+            if m > peak_mean:
+                is_max = False
+
+        if is_max:
+            positives.append([i, x[i]])
+
+    return positives
+
+
 def get_windows(batch, n_window, n_features, shift):
     """
     Returns window by its number in the batch.
@@ -446,7 +498,7 @@ def predict_streams(model, streams, frequency = 100., params = None, progress_ba
             # 1. Try restoring scores and look at results
             # 2. Drop scores restoring, do not forget to change parameters for pick detection (window size, etc.)
             # 3. Compare results!
-            scores = restore_scores(scores, (len(batch[0]), len(params['model_labels'])), 10)
+            # scores = restore_scores(scores, (len(batch[0]), len(params['model_labels'])), 10)
 
             # Find positives
             predicted_labels = {}
@@ -457,10 +509,10 @@ def predict_streams(model, streams, frequency = 100., params = None, progress_ba
                     if m_label_name != p_label_name:
                         other_labels.append(m_label)
 
-                positives = get_positives(scores,
-                                          p_label,
-                                          other_labels,
-                                          threshold = params['threshold'])
+                positives = get_simple_positives(scores,
+                                                 p_label,
+                                                 other_labels,
+                                                 threshold = params['threshold'])
 
                 predicted_labels[p_label_name] = positives
 
@@ -473,9 +525,12 @@ def predict_streams(model, streams, frequency = 100., params = None, progress_ba
                 for position, prob in predictions:
 
                     # TODO: Get number of features and shift from parameters
-                    X = get_windows(batch, position, 400, 10)
+                    # X = get_windows(batch, position, 400, 10)
+                    X = windows[position]
+                    X.reshape(1, 400, 3)
 
                     P[0] = prob
+                    
                     write_batch(params['out_hdf5'], 'X', X)
                     write_batch(params['out_hdf5'], 'Y', Y)
                     write_batch(params['out_hdf5'], 'P', P)
