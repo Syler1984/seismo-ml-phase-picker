@@ -527,10 +527,10 @@ def predict_streams(model, streams, frequency = 100., params = None, progress_ba
                     # TODO: Get number of features and shift from parameters
                     # X = get_windows(batch, position, 400, 10)
                     X = windows[position]
-                    X.reshape(1, 400, 3)
+                    X = X.reshape(1, 400, 3)
 
                     P[0] = prob
-                    
+
                     write_batch(params['out_hdf5'], 'X', X)
                     write_batch(params['out_hdf5'], 'Y', Y)
                     write_batch(params['out_hdf5'], 'P', P)
